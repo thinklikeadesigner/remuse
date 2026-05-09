@@ -1,0 +1,20 @@
+{
+  "name": "remuse",
+  "version": "0.1.0",
+  "description": "Audio de-reverb, stem-to-MIDI, and OpenDAW session orchestration scaffold.",
+  "type": "module",
+  "private": false,
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "check": "tsc -p tsconfig.json --noEmit",
+    "demo:mock": "node --experimental-strip-types src/demo/runMockPipeline.ts",
+    "test": "node --test --experimental-strip-types tests/**/*.test.ts"
+  },
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.0",
+    "typescript": "^5.8.3"
+  }
+}

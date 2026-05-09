@@ -1,0 +1,252 @@
+version: "1.0"
+kind: multi-agent-orchestration
+
+metadata:
+  name: remuse-audio-to-midi-opendaw-sprint
+  description: Multi-agent sprint plan for an AIFF de-reverb, stem-to-MIDI, and OpenDAW bounce application.
+  timezone: America/Chicago
+  intensity: high
+
+repository:
+  name: remuse
+  default_branch: main
+  remote: git@github.com:turboslav-repo/remuse.git
+  worktree_root: ../hackathon-agent-worktrees
+  branch_namespace: agent
+
+coordination:
+  orchestrator_agent: master-orchestrator
+  cadence:
+    standup_interval_minutes: 30
+    integration_batch_minutes: 90
+    blocker_response_minutes: 10
+  integration_rules:
+    - Every agent works from its own agent branch and worktree.
+    - Provider-facing code must go through shared interfaces in src/pipeline/types.ts.
+    - External APIs are implemented behind adapters with mock parity first.
+    - Main receives orchestrator-approved integration batches only.
+    - P0/P1 review findings block merges.
+
+agents:
+  orchestration:
+    - id: master-orchestrator
+      branch: agent/master-orchestrator
+      worktree: ../hackathon-agent-worktrees/master-orchestrator
+      role: Master orchestration agent for sprint sequencing, integration, and scope control.
+      owns:
+        - config/**
+        - docs/agents/**
+        - docs/architecture/**
+        - docs/decision-log.md
+        - docs/integration-board.md
+      deliverables:
+        - Integration queue.
+        - Cross-agent decision log.
+        - Merge batch summaries.
+
+  development:
+    - id: workflow-engine-dev
+      branch: agent/workflow-engine-dev
+      worktree: ../hackathon-agent-worktrees/workflow-engine-dev
+      role: Pipeline state machine and artifact lifecycle development.
+      owns:
+        - src/pipeline/**
+      deliverables:
+        - Deterministic workflow runner.
+        - Job state transitions.
+        - Retry and failure semantics.
+
+    - id: api-backend-dev
+      branch: agent/api-backend-dev
+      worktree: ../hackathon-agent-worktrees/api-backend-dev
+      role: Upload, job status, artifact, and download API development.
+      owns:
+        - src/server/**
+        - src/storage/**
+      deliverables:
+        - Upload validation endpoint.
+        - Job status endpoint.
+        - Artifact download endpoint.
+
+    - id: audio-provider-dev
+      branch: agent/audio-provider-dev
+      worktree: ../hackathon-agent-worktrees/audio-provider-dev
+      role: De-reverb, stem separation, and MIDI conversion provider adapters.
+      owns:
+        - src/providers/dereverb/**
+        - src/providers/stem-separation/**
+        - src/providers/midi-conversion/**
+      deliverables:
+        - External API adapters.
+        - Provider request/response normalization.
+        - Contract-test fixtures.
+
+    - id: ai-instrument-dev
+      branch: agent/ai-instrument-dev
+      worktree: ../hackathon-agent-worktrees/ai-instrument-dev
+      role: AI instrument identification and label normalization.
+      owns:
+        - src/providers/instrument-id/**
+        - src/pipeline/naming.ts
+      deliverables:
+        - Instrument classifier adapter.
+        - Confidence scoring and fallback labels.
+        - Filename-safe label preservation.
+
+    - id: opendaw-integration-dev
+      branch: agent/opendaw-integration-dev
+      worktree: ../hackathon-agent-worktrees/opendaw-integration-dev
+      role: OpenDAW SDK integration for sessions, MIDI import, sample libraries, and bounce.
+      owns:
+        - src/providers/opendaw/**
+        - docs/architecture/opendaw-integration-spike.md
+      deliverables:
+        - OpenDAW SDK feasibility notes.
+        - Session creation adapter.
+        - MIDI import and stereo bounce adapter.
+
+    - id: frontend-dev
+      branch: agent/frontend-dev
+      worktree: ../hackathon-agent-worktrees/frontend-dev
+      role: User upload, progress, and result download experience.
+      owns:
+        - src/web/**
+        - public/**
+      deliverables:
+        - AIFF upload UI.
+        - Pipeline progress view.
+        - Final bounce download page.
+
+  testing:
+    - id: unit-test-agent
+      branch: agent/unit-test-agent
+      worktree: ../hackathon-agent-worktrees/unit-test-agent
+      role: Unit test coverage for pure pipeline logic.
+      owns:
+        - tests/unit/**
+      deliverables:
+        - Tests for naming, job state, provider contracts, and sample mapping.
+
+    - id: integration-test-agent
+      branch: agent/integration-test-agent
+      worktree: ../hackathon-agent-worktrees/integration-test-agent
+      role: Mock-provider and end-to-end pipeline integration tests.
+      owns:
+        - tests/integration/**
+      deliverables:
+        - Full mock pipeline test.
+        - Failure and retry path tests.
+
+    - id: audio-fixture-test-agent
+      branch: agent/audio-fixture-test-agent
+      worktree: ../hackathon-agent-worktrees/audio-fixture-test-agent
+      role: Audio fixture management and format validation tests.
+      owns:
+        - tests/fixtures/**
+        - tests/audio/**
+      deliverables:
+        - AIFF fixture inventory.
+        - Format validation tests.
+        - Golden metadata snapshots.
+
+  documentation:
+    - id: docs-agent
+      branch: agent/docs-agent
+      worktree: ../hackathon-agent-worktrees/docs-agent
+      role: Product, architecture, provider setup, and demo documentation.
+      owns:
+        - docs/**
+        - README.md
+      deliverables:
+        - Architecture overview.
+        - Provider environment setup guide.
+        - Demo runbook.
+
+  review:
+    - id: architecture-review
+      branch: agent/architecture-review
+      worktree: ../hackathon-agent-worktrees/architecture-review
+      role: Architecture and OpenDAW feasibility reviewer.
+      owns:
+        - reviews/architecture/**
+      review_scope:
+        - Pipeline boundaries.
+        - Provider abstraction quality.
+        - OpenDAW SDK assumptions.
+
+    - id: security-privacy-review
+      branch: agent/security-privacy-review
+      worktree: ../hackathon-agent-worktrees/security-privacy-review
+      role: Security, privacy, and external provider risk reviewer.
+      owns:
+        - reviews/security/**
+      review_scope:
+        - Uploaded audio retention.
+        - Provider secrets.
+        - Temporary artifact cleanup.
+        - Public URL exposure.
+
+    - id: code-review
+      branch: agent/code-review
+      worktree: ../hackathon-agent-worktrees/code-review
+      role: Code correctness and merge readiness reviewer.
+      owns:
+        - reviews/code/**
+      review_scope:
+        - Correctness.
+        - Missing tests.
+        - Risky shortcuts.
+
+    - id: release-readiness-review
+      branch: agent/release-readiness-review
+      worktree: ../hackathon-agent-worktrees/release-readiness-review
+      role: Demo readiness and release gate reviewer.
+      owns:
+        - reviews/release/**
+        - docs/demo-runbook.md
+      review_scope:
+        - Demo path.
+        - Failure fallback.
+        - Final bounce acceptance.
+
+merge_pipeline:
+  - step: scaffold
+    owner: master-orchestrator
+    required_reviews:
+      - architecture-review
+      - code-review
+  - step: mock_end_to_end
+    owner: workflow-engine-dev
+    required_reviews:
+      - unit-test-agent
+      - integration-test-agent
+      - code-review
+  - step: provider_integrations
+    owner: audio-provider-dev
+    required_reviews:
+      - security-privacy-review
+      - integration-test-agent
+      - code-review
+  - step: opendaw_integration
+    owner: opendaw-integration-dev
+    required_reviews:
+      - architecture-review
+      - release-readiness-review
+  - step: demo_release
+    owner: release-readiness-review
+    required_reviews:
+      - master-orchestrator
+      - code-review
+      - security-privacy-review
+
+definition_of_ready:
+  - Shared TypeScript interfaces exist for every external provider.
+  - Mock providers run through the full pipeline without real API credentials.
+  - Each agent has an assigned branch and worktree.
+  - Unit and integration test lanes have explicit ownership.
+
+definition_of_done:
+  - User can upload a 16-bit, 44.1 kHz AIFF.
+  - Pipeline returns a stereo 16-bit, 44.1 kHz AIFF bounce.
+  - Every external provider has contract tests or recorded mock fixtures.
+  - Review agents have no open P0 or P1 findings.
