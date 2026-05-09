@@ -14,13 +14,13 @@ export function nextId(prefix: string): string {
   return `${prefix}-${String(counter).padStart(4, "0")}`;
 }
 
-export function createMockAudioArtifact(input: {
-  kind: AudioArtifact["kind"];
+export function createMockAudioArtifact<const Kind extends AudioArtifact["kind"]>(input: {
+  kind: Kind;
   filename: string;
   sourceArtifactIds?: string[];
-  durationSeconds?: number;
+  durationSeconds?: number | undefined;
   metadata?: Record<string, string | number | boolean>;
-}): AudioArtifact {
+}): AudioArtifact & { kind: Kind } {
   return {
     id: nextId(input.kind),
     kind: input.kind,
