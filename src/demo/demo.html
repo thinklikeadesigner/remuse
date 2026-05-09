@@ -1,0 +1,713 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>ReMuse Demo</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --bg: #090909;
+        --panel: #141414;
+        --panel-2: #1b1b1b;
+        --line: #2b2b2b;
+        --text: #f6f2ea;
+        --muted: #aba49a;
+        --gold: #d8ae5f;
+        --red: #9d2f33;
+        --green: #4d9f7a;
+        --shadow: rgba(0, 0, 0, 0.45);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        background:
+          linear-gradient(180deg, rgba(9, 9, 9, 0.7), #090909 72%),
+          url("output/preview_orchestra_end.jpg") center top / cover fixed;
+        color: var(--text);
+        font-family:
+          Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      }
+
+      button,
+      input {
+        font: inherit;
+      }
+
+      .shell {
+        min-height: 100vh;
+        display: grid;
+        grid-template-rows: auto 1fr auto;
+      }
+
+      header {
+        height: 72px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0 32px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+        background: rgba(9, 9, 9, 0.72);
+        backdrop-filter: blur(18px);
+      }
+
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        min-width: 0;
+      }
+
+      .mark {
+        width: 34px;
+        height: 34px;
+        display: grid;
+        place-items: center;
+        border: 1px solid rgba(216, 174, 95, 0.55);
+        background: #12100d;
+      }
+
+      .mark svg {
+        width: 20px;
+        height: 20px;
+      }
+
+      .brand-title {
+        font-size: 18px;
+        font-weight: 760;
+      }
+
+      .brand-subtitle {
+        color: var(--muted);
+        font-size: 12px;
+        margin-top: 2px;
+      }
+
+      .status {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        color: var(--muted);
+        font-size: 13px;
+      }
+
+      .status-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 999px;
+        background: var(--green);
+        box-shadow: 0 0 18px rgba(77, 159, 122, 0.7);
+      }
+
+      main {
+        width: min(1440px, 100%);
+        margin: 0 auto;
+        padding: 28px 32px 32px;
+      }
+
+      .stage {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 340px;
+        gap: 22px;
+        align-items: stretch;
+      }
+
+      .video-panel,
+      .control-panel,
+      .audio-panel,
+      .metric {
+        background: rgba(20, 20, 20, 0.92);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        box-shadow: 0 22px 80px var(--shadow);
+      }
+
+      .video-panel {
+        min-width: 0;
+        overflow: hidden;
+      }
+
+      .video-wrap {
+        position: relative;
+        background: #000;
+        aspect-ratio: 16 / 9;
+      }
+
+      video {
+        width: 100%;
+        height: 100%;
+        display: block;
+        object-fit: contain;
+        background: #000;
+      }
+
+      .video-overlay {
+        position: absolute;
+        inset: auto 0 0;
+        display: flex;
+        align-items: end;
+        justify-content: space-between;
+        gap: 24px;
+        padding: 28px;
+        background: linear-gradient(180deg, transparent, rgba(0, 0, 0, 0.78));
+        pointer-events: none;
+      }
+
+      h1 {
+        margin: 0;
+        font-size: clamp(34px, 5vw, 68px);
+        line-height: 0.95;
+        letter-spacing: 0;
+      }
+
+      .tagline {
+        max-width: 520px;
+        margin-top: 12px;
+        color: #ddd6ca;
+        font-size: clamp(15px, 1.4vw, 20px);
+        line-height: 1.4;
+      }
+
+      .progress-stack {
+        width: min(360px, 34vw);
+        min-width: 240px;
+      }
+
+      .progress-labels {
+        display: flex;
+        justify-content: space-between;
+        color: #dfd7c9;
+        font-size: 12px;
+        margin-bottom: 8px;
+      }
+
+      .progress-track {
+        height: 10px;
+        border: 1px solid rgba(255, 255, 255, 0.18);
+        background: #161616;
+      }
+
+      .progress-fill {
+        width: 0%;
+        height: 100%;
+        background: linear-gradient(90deg, #626262, var(--gold), #fff4cb);
+      }
+
+      .controls {
+        padding: 14px 16px;
+        display: grid;
+        grid-template-columns: auto 1fr auto;
+        gap: 14px;
+        align-items: center;
+        border-top: 1px solid rgba(255, 255, 255, 0.08);
+      }
+
+      .icon-button,
+      .primary-button {
+        border: 1px solid rgba(255, 255, 255, 0.16);
+        color: var(--text);
+        background: #202020;
+        cursor: pointer;
+      }
+
+      .icon-button {
+        width: 44px;
+        height: 44px;
+        display: grid;
+        place-items: center;
+      }
+
+      .icon-button:hover,
+      .primary-button:hover,
+      .file-label:hover {
+        border-color: rgba(216, 174, 95, 0.7);
+      }
+
+      .scrubber {
+        width: 100%;
+        accent-color: var(--gold);
+      }
+
+      .time {
+        color: var(--muted);
+        font-variant-numeric: tabular-nums;
+        font-size: 13px;
+      }
+
+      .control-panel {
+        padding: 22px;
+        display: flex;
+        flex-direction: column;
+        gap: 18px;
+      }
+
+      .panel-title {
+        margin: 0;
+        font-size: 22px;
+        line-height: 1.1;
+      }
+
+      .panel-copy {
+        margin: 0;
+        color: var(--muted);
+        line-height: 1.45;
+      }
+
+      .primary-button {
+        min-height: 56px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 10px;
+        padding: 0 18px;
+        background: linear-gradient(180deg, #d9b469, #a8792b);
+        border-color: rgba(255, 239, 197, 0.45);
+        color: #12100b;
+        font-weight: 780;
+      }
+
+      .steps {
+        display: grid;
+        gap: 10px;
+      }
+
+      .curve-meter {
+        display: grid;
+        grid-template-columns: 20% 60% 20%;
+        border: 1px solid var(--line);
+        background: #101010;
+      }
+
+      .curve-segment {
+        min-height: 46px;
+        display: grid;
+        place-items: center;
+        padding: 8px;
+        color: var(--muted);
+        font-size: 12px;
+        text-align: center;
+        border-right: 1px solid var(--line);
+      }
+
+      .curve-segment:last-child {
+        border-right: 0;
+      }
+
+      .curve-segment.active {
+        color: #12100b;
+        background: linear-gradient(180deg, #d9b469, #a8792b);
+        font-weight: 760;
+      }
+
+      .step {
+        display: grid;
+        grid-template-columns: 28px 1fr;
+        gap: 12px;
+        align-items: start;
+        padding: 12px;
+        background: var(--panel-2);
+        border: 1px solid var(--line);
+      }
+
+      .step-num {
+        width: 28px;
+        height: 28px;
+        display: grid;
+        place-items: center;
+        border: 1px solid rgba(216, 174, 95, 0.45);
+        color: var(--gold);
+        font-weight: 740;
+        font-size: 13px;
+      }
+
+      .step strong {
+        display: block;
+        font-size: 14px;
+      }
+
+      .step span {
+        display: block;
+        margin-top: 3px;
+        color: var(--muted);
+        font-size: 13px;
+        line-height: 1.35;
+      }
+
+      .audio-row {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 22px;
+        margin-top: 22px;
+      }
+
+      .audio-panel {
+        padding: 20px;
+        display: grid;
+        gap: 14px;
+      }
+
+      .audio-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 14px;
+      }
+
+      .audio-head h2 {
+        margin: 0;
+        font-size: 18px;
+      }
+
+      .badge {
+        padding: 5px 9px;
+        background: rgba(255, 255, 255, 0.08);
+        color: var(--muted);
+        font-size: 12px;
+      }
+
+      .badge.bad {
+        color: #ffb9b9;
+        background: rgba(157, 47, 51, 0.24);
+      }
+
+      .badge.good {
+        color: #c9f0dd;
+        background: rgba(77, 159, 122, 0.22);
+      }
+
+      .file-label {
+        min-height: 92px;
+        display: grid;
+        place-items: center;
+        padding: 16px;
+        border: 1px dashed rgba(255, 255, 255, 0.25);
+        color: var(--muted);
+        background: #101010;
+        text-align: center;
+        cursor: pointer;
+      }
+
+      .file-label input {
+        display: none;
+      }
+
+      audio {
+        width: 100%;
+        height: 40px;
+      }
+
+      .metrics {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 16px;
+        margin-top: 22px;
+      }
+
+      .metric {
+        padding: 18px;
+      }
+
+      .metric-value {
+        font-size: 26px;
+        font-weight: 780;
+      }
+
+      .metric-label {
+        margin-top: 4px;
+        color: var(--muted);
+        font-size: 13px;
+      }
+
+      footer {
+        padding: 20px 32px 28px;
+        color: var(--muted);
+        font-size: 13px;
+        text-align: center;
+      }
+
+      @media (max-width: 1080px) {
+        .stage,
+        .audio-row {
+          grid-template-columns: 1fr;
+        }
+
+        .progress-stack {
+          display: none;
+        }
+      }
+
+      @media (max-width: 720px) {
+        header {
+          height: auto;
+          padding: 18px;
+          align-items: start;
+          gap: 16px;
+          flex-direction: column;
+        }
+
+        main {
+          padding: 18px;
+        }
+
+        .video-overlay {
+          position: static;
+          padding: 18px;
+          background: #101010;
+        }
+
+        h1 {
+          font-size: 36px;
+        }
+
+        .controls {
+          grid-template-columns: auto 1fr;
+        }
+
+        .time {
+          grid-column: 1 / -1;
+        }
+
+        .metrics {
+          grid-template-columns: 1fr 1fr;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="shell">
+      <header>
+        <div class="brand">
+          <div class="mark" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none">
+              <path d="M9 18V5l11-2v13" stroke="#d8ae5f" stroke-width="1.8" />
+              <circle cx="6.5" cy="18" r="3" stroke="#f6f2ea" stroke-width="1.8" />
+              <circle cx="17.5" cy="16" r="3" stroke="#f6f2ea" stroke-width="1.8" />
+            </svg>
+          </div>
+          <div>
+            <div class="brand-title">ReMuse</div>
+            <div class="brand-subtitle">Agentic audio restoration made visible</div>
+          </div>
+        </div>
+        <div class="status">
+          <span class="status-dot"></span>
+          <span>Hackathon demo build</span>
+        </div>
+      </header>
+
+      <main>
+        <section class="stage" aria-label="ReMuse transformation demo">
+          <div class="video-panel">
+            <div class="video-wrap">
+              <video id="video" preload="metadata" poster="output/preview_orchestra_start.jpg">
+                <source src="output/remuse_output_orchestra.mp4" type="video/mp4" />
+              </video>
+              <div class="video-overlay">
+                <div>
+                  <h1>Hear the past return.</h1>
+                  <div class="tagline">
+                    Damaged recordings become clean, vivid performances while the visual world restores itself in sync.
+                  </div>
+                </div>
+                <div class="progress-stack" aria-hidden="true">
+                  <div class="progress-labels">
+                    <span>damaged</span>
+                    <span>restored</span>
+                  </div>
+                  <div class="progress-track">
+                    <div class="progress-fill" id="restoreFill"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="controls">
+              <button class="icon-button" id="toggle" aria-label="Play transformation" title="Play transformation">
+                <svg id="playIcon" width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                  <path d="M8 5v14l11-7-11-7Z" fill="currentColor" />
+                </svg>
+              </button>
+              <input class="scrubber" id="scrubber" type="range" min="0" max="1000" value="0" aria-label="Timeline" />
+              <div class="time" id="time">00:00 / 00:00</div>
+            </div>
+          </div>
+
+          <aside class="control-panel">
+            <div>
+              <p class="panel-copy">
+                Watch the damaged recording become a clean performance as the image restores in the same breath.
+              </p>
+            </div>
+            <div class="curve-meter" aria-label="Restoration journey">
+              <div class="curve-segment">damaged source</div>
+              <div class="curve-segment active">live restoration</div>
+              <div class="curve-segment">restored output</div>
+            </div>
+            <button class="primary-button" id="bigPlay">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <path d="M8 5v14l11-7-11-7Z" fill="currentColor" />
+              </svg>
+              Play Transformation
+            </button>
+            <div class="steps">
+              <div class="step">
+                <div class="step-num">1</div>
+                <div>
+                  <strong>Start broken</strong>
+                  <span>Noisy audio, flat monochrome image, visible grain.</span>
+                </div>
+              </div>
+              <div class="step">
+                <div class="step-num">2</div>
+                <div>
+                  <strong>Restore together</strong>
+                  <span>Color, clarity, and musical detail return together.</span>
+                </div>
+              </div>
+              <div class="step">
+                <div class="step-num">3</div>
+                <div>
+                  <strong>End cinematic</strong>
+                  <span>The finished performance lands sharp, warm, and vivid.</span>
+                </div>
+              </div>
+            </div>
+          </aside>
+        </section>
+
+        <section class="audio-row" aria-label="Audio comparison">
+          <div class="audio-panel">
+            <div class="audio-head">
+              <h2>Before</h2>
+              <span class="badge bad">damaged</span>
+            </div>
+            <label class="file-label">
+              <input id="beforeFile" type="file" accept="audio/*" />
+              <span id="beforeLabel">Drop in the damaged recording for the live pitch</span>
+            </label>
+            <audio id="beforeAudio" controls></audio>
+          </div>
+
+          <div class="audio-panel">
+            <div class="audio-head">
+              <h2>After</h2>
+              <span class="badge good">ReMuse</span>
+            </div>
+            <label class="file-label">
+              <input id="afterFile" type="file" accept="audio/*" />
+              <span id="afterLabel">Drop in the restored ReMuse output</span>
+            </label>
+            <audio id="afterAudio" controls></audio>
+          </div>
+        </section>
+
+        <section class="metrics" aria-label="Demo metrics">
+          <div class="metric">
+            <div class="metric-value">Synced</div>
+            <div class="metric-label">audio + video restoration</div>
+          </div>
+          <div class="metric">
+            <div class="metric-value">4</div>
+            <div class="metric-label">chained camera moves</div>
+          </div>
+          <div class="metric">
+            <div class="metric-value">B&W</div>
+            <div class="metric-label">to vivid color</div>
+          </div>
+          <div class="metric">
+            <div class="metric-value">MP4</div>
+            <div class="metric-label">ready for judging</div>
+          </div>
+        </section>
+      </main>
+
+      <footer>
+        ReMuse restores the sound. This demo restores the feeling.
+      </footer>
+    </div>
+
+    <script>
+      const video = document.querySelector("#video");
+      const toggle = document.querySelector("#toggle");
+      const bigPlay = document.querySelector("#bigPlay");
+      const playIcon = document.querySelector("#playIcon");
+      const scrubber = document.querySelector("#scrubber");
+      const restoreFill = document.querySelector("#restoreFill");
+      const time = document.querySelector("#time");
+
+      const playSvg = '<path d="M8 5v14l11-7-11-7Z" fill="currentColor" />';
+      const pauseSvg = '<path d="M7 5h4v14H7V5Zm6 0h4v14h-4V5Z" fill="currentColor" />';
+
+      function formatTime(seconds) {
+        if (!Number.isFinite(seconds)) return "00:00";
+        const whole = Math.max(0, Math.floor(seconds));
+        const minutes = String(Math.floor(whole / 60)).padStart(2, "0");
+        const secs = String(whole % 60).padStart(2, "0");
+        return `${minutes}:${secs}`;
+      }
+
+      function restorationCurve(progress) {
+        return Math.min(1, Math.max(0, (progress - 0.2) / 0.6));
+      }
+
+      function updateUi() {
+        const duration = video.duration || 0;
+        const progress = duration ? video.currentTime / duration : 0;
+        const restored = restorationCurve(progress);
+        scrubber.value = Math.round(progress * 1000);
+        restoreFill.style.width = `${Math.round(restored * 100)}%`;
+        time.textContent = `${formatTime(video.currentTime)} / ${formatTime(duration)}`;
+        playIcon.innerHTML = video.paused ? playSvg : pauseSvg;
+        toggle.setAttribute("aria-label", video.paused ? "Play transformation" : "Pause transformation");
+      }
+
+      async function togglePlayback() {
+        if (video.paused) {
+          await video.play();
+        } else {
+          video.pause();
+        }
+        updateUi();
+      }
+
+      toggle.addEventListener("click", togglePlayback);
+      bigPlay.addEventListener("click", async () => {
+        video.currentTime = 0;
+        await video.play();
+        updateUi();
+      });
+
+      scrubber.addEventListener("input", () => {
+        if (!video.duration) return;
+        video.currentTime = (Number(scrubber.value) / 1000) * video.duration;
+        updateUi();
+      });
+
+      video.addEventListener("loadedmetadata", updateUi);
+      video.addEventListener("timeupdate", updateUi);
+      video.addEventListener("play", updateUi);
+      video.addEventListener("pause", updateUi);
+      video.addEventListener("ended", updateUi);
+
+      function bindAudioPicker(inputId, audioId, labelId) {
+        const input = document.querySelector(inputId);
+        const audio = document.querySelector(audioId);
+        const label = document.querySelector(labelId);
+
+        input.addEventListener("change", () => {
+          const file = input.files && input.files[0];
+          if (!file) return;
+          audio.src = URL.createObjectURL(file);
+          label.textContent = file.name;
+        });
+      }
+
+      bindAudioPicker("#beforeFile", "#beforeAudio", "#beforeLabel");
+      bindAudioPicker("#afterFile", "#afterAudio", "#afterLabel");
+      updateUi();
+    </script>
+  </body>
+</html>
