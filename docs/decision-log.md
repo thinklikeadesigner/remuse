@@ -3,3 +3,5 @@
 | Time | Decision | Owner | Notes |
 | --- | --- | --- | --- |
 | TBD | Initial orchestration model created. | sprint-orchestrator | One orchestrator, parallel development/testing lanes, and dedicated review lanes. |
+| 2026-05-09 | Phase 0 OpenDAW spike completed. | master-orchestrator | Use `@opendaw/studio-core`, `@opendaw/studio-adapters`, `@opendaw/studio-boxes`, and `@opendaw/lib-midi` behind `OpenDawProvider`; keep runtime proof as next OpenDAW task. |
+| 2026-05-09 | External provider contract normalized. | master-orchestrator | Use async job contracts with signed artifact URLs, checksums, idempotency keys, and structured errors for de-reverb, stem separation, instrument identification, and MIDI conversion. |

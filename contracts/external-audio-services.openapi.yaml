@@ -1,0 +1,456 @@
+openapi: 3.1.0
+info:
+  title: Remuse External Audio Processing Provider Contract
+  version: 0.1.0
+  description: >
+    Provider-neutral HTTP contract for de-reverb separation, instrument stem separation,
+    AI instrument identification, and stem-to-MIDI conversion. Concrete vendor adapters
+    may translate to vendor-specific APIs, but must expose this shape to the workflow layer.
+servers:
+  - url: https://provider.example.com
+    description: Placeholder provider base URL.
+security:
+  - bearerAuth: []
+paths:
+  /v1/dereverb/jobs:
+    post:
+      operationId: createDereverbJob
+      summary: Split an input AIFF into dry-only and reverb-only tracks.
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DereverbJobRequest"
+      responses:
+        "202":
+          description: De-reverb job accepted.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AsyncJobAccepted"
+  /v1/dereverb/jobs/{jobId}:
+    get:
+      operationId: getDereverbJob
+      summary: Fetch de-reverb job status and outputs.
+      parameters:
+        - $ref: "#/components/parameters/JobId"
+      responses:
+        "200":
+          description: De-reverb job status.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DereverbJobResult"
+  /v1/stem-separation/jobs:
+    post:
+      operationId: createInstrumentStemSeparationJob
+      summary: Separate a dry-only AIFF into detected instrument stems.
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StemSeparationJobRequest"
+      responses:
+        "202":
+          description: Stem separation job accepted.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AsyncJobAccepted"
+  /v1/stem-separation/jobs/{jobId}:
+    get:
+      operationId: getInstrumentStemSeparationJob
+      summary: Fetch instrument stem separation status and outputs.
+      parameters:
+        - $ref: "#/components/parameters/JobId"
+      responses:
+        "200":
+          description: Stem separation job status.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StemSeparationJobResult"
+  /v1/instrument-identification/jobs:
+    post:
+      operationId: createInstrumentIdentificationJob
+      summary: Identify the most likely instrument for each audio stem.
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/InstrumentIdentificationJobRequest"
+      responses:
+        "202":
+          description: Instrument identification job accepted.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AsyncJobAccepted"
+  /v1/instrument-identification/jobs/{jobId}:
+    get:
+      operationId: getInstrumentIdentificationJob
+      summary: Fetch instrument identification status and labels.
+      parameters:
+        - $ref: "#/components/parameters/JobId"
+      responses:
+        "200":
+          description: Instrument identification job status.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InstrumentIdentificationJobResult"
+  /v1/midi-conversion/jobs:
+    post:
+      operationId: createMidiConversionJob
+      summary: Convert labeled instrument stems into MIDI files.
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MidiConversionJobRequest"
+      responses:
+        "202":
+          description: MIDI conversion job accepted.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AsyncJobAccepted"
+  /v1/midi-conversion/jobs/{jobId}:
+    get:
+      operationId: getMidiConversionJob
+      summary: Fetch MIDI conversion status and MIDI file outputs.
+      parameters:
+        - $ref: "#/components/parameters/JobId"
+      responses:
+        "200":
+          description: MIDI conversion job status.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MidiConversionJobResult"
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+  parameters:
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      description: Stable key generated from the Remuse job id, step name, and input artifact hashes.
+      schema:
+        type: string
+        minLength: 16
+    JobId:
+      name: jobId
+      in: path
+      required: true
+      schema:
+        type: string
+  schemas:
+    AsyncJobAccepted:
+      type: object
+      required: [providerJobId, status, statusUrl]
+      properties:
+        providerJobId:
+          type: string
+        status:
+          const: accepted
+        statusUrl:
+          type: string
+          format: uri-reference
+        estimatedCompletionSeconds:
+          type: integer
+          minimum: 1
+    JobStatus:
+      type: string
+      enum: [accepted, queued, running, succeeded, failed, canceled]
+    ProcessingError:
+      type: object
+      required: [code, message, retryable]
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+        retryable:
+          type: boolean
+        details:
+          type: object
+          additionalProperties: true
+    AudioFormat:
+      type: object
+      required: [container, sampleRateHz, bitDepth, channels]
+      properties:
+        container:
+          type: string
+          enum: [AIFF, WAV]
+        sampleRateHz:
+          type: integer
+          enum: [44100]
+        bitDepth:
+          type: integer
+          enum: [16, 24, 32]
+        channels:
+          type: integer
+          minimum: 1
+          maximum: 2
+    AudioArtifactRef:
+      type: object
+      required: [artifactId, url, filename, mediaType, sha256, format]
+      properties:
+        artifactId:
+          type: string
+        url:
+          type: string
+          format: uri
+          description: Signed HTTPS URL readable by the provider for at least 30 minutes.
+        filename:
+          type: string
+        mediaType:
+          type: string
+          enum: [audio/aiff, audio/wav]
+        sha256:
+          type: string
+          pattern: "^[a-f0-9]{64}$"
+        format:
+          $ref: "#/components/schemas/AudioFormat"
+        durationSeconds:
+          type: number
+          minimum: 0
+    MidiArtifactRef:
+      type: object
+      required: [artifactId, url, filename, mediaType, sha256, midiFormat]
+      properties:
+        artifactId:
+          type: string
+        url:
+          type: string
+          format: uri
+        filename:
+          type: string
+        mediaType:
+          type: string
+          enum: [audio/midi, audio/x-midi]
+        sha256:
+          type: string
+          pattern: "^[a-f0-9]{64}$"
+        midiFormat:
+          type: integer
+          enum: [0, 1]
+        ticksPerQuarter:
+          type: integer
+          minimum: 1
+    InstrumentLabel:
+      type: object
+      required: [canonicalName, family, confidence, method]
+      properties:
+        canonicalName:
+          type: string
+          pattern: "^[a-z0-9][a-z0-9-]*$"
+        family:
+          type: string
+          enum: [vocal, drums, bass, guitar, keys, strings, brass, woodwinds, synth, percussion, unknown]
+        confidence:
+          type: number
+          minimum: 0
+          maximum: 1
+        method:
+          type: string
+          enum: [ai-audio-analysis, filename-hint, manual, provider-native]
+        midiProgram:
+          type: integer
+          minimum: 0
+          maximum: 127
+        sampleLibraryKey:
+          type: string
+    DereverbJobRequest:
+      type: object
+      required: [remuseJobId, inputAudio, outputFormat]
+      properties:
+        remuseJobId:
+          type: string
+        inputAudio:
+          $ref: "#/components/schemas/AudioArtifactRef"
+        outputFormat:
+          $ref: "#/components/schemas/AudioFormat"
+        callbackUrl:
+          type: string
+          format: uri
+    DereverbJobResult:
+      type: object
+      required: [providerJobId, status]
+      properties:
+        providerJobId:
+          type: string
+        status:
+          $ref: "#/components/schemas/JobStatus"
+        dryOnly:
+          $ref: "#/components/schemas/AudioArtifactRef"
+        reverbOnly:
+          $ref: "#/components/schemas/AudioArtifactRef"
+        error:
+          $ref: "#/components/schemas/ProcessingError"
+    StemSeparationJobRequest:
+      type: object
+      required: [remuseJobId, dryOnlyAudio, outputFormat]
+      properties:
+        remuseJobId:
+          type: string
+        dryOnlyAudio:
+          $ref: "#/components/schemas/AudioArtifactRef"
+        outputFormat:
+          $ref: "#/components/schemas/AudioFormat"
+        maxStems:
+          type: integer
+          minimum: 1
+          maximum: 64
+          default: 32
+        callbackUrl:
+          type: string
+          format: uri
+    StemSeparationJobResult:
+      type: object
+      required: [providerJobId, status]
+      properties:
+        providerJobId:
+          type: string
+        status:
+          $ref: "#/components/schemas/JobStatus"
+        stems:
+          type: array
+          items:
+            type: object
+            required: [stemIndex, audio]
+            properties:
+              stemIndex:
+                type: integer
+                minimum: 0
+              providerLabel:
+                type: string
+              audio:
+                $ref: "#/components/schemas/AudioArtifactRef"
+        error:
+          $ref: "#/components/schemas/ProcessingError"
+    InstrumentIdentificationJobRequest:
+      type: object
+      required: [remuseJobId, stems]
+      properties:
+        remuseJobId:
+          type: string
+        stems:
+          type: array
+          minItems: 1
+          items:
+            type: object
+            required: [stemIndex, audio]
+            properties:
+              stemIndex:
+                type: integer
+                minimum: 0
+              audio:
+                $ref: "#/components/schemas/AudioArtifactRef"
+              providerLabel:
+                type: string
+        labelTaxonomy:
+          type: string
+          enum: [remuse-v0]
+          default: remuse-v0
+        callbackUrl:
+          type: string
+          format: uri
+    InstrumentIdentificationJobResult:
+      type: object
+      required: [providerJobId, status]
+      properties:
+        providerJobId:
+          type: string
+        status:
+          $ref: "#/components/schemas/JobStatus"
+        labels:
+          type: array
+          items:
+            type: object
+            required: [stemIndex, label]
+            properties:
+              stemIndex:
+                type: integer
+                minimum: 0
+              label:
+                $ref: "#/components/schemas/InstrumentLabel"
+              alternatives:
+                type: array
+                items:
+                  $ref: "#/components/schemas/InstrumentLabel"
+        error:
+          $ref: "#/components/schemas/ProcessingError"
+    MidiConversionJobRequest:
+      type: object
+      required: [remuseJobId, stems, midiFormat]
+      properties:
+        remuseJobId:
+          type: string
+        stems:
+          type: array
+          minItems: 1
+          items:
+            type: object
+            required: [stemIndex, audio, label]
+            properties:
+              stemIndex:
+                type: integer
+                minimum: 0
+              audio:
+                $ref: "#/components/schemas/AudioArtifactRef"
+              label:
+                $ref: "#/components/schemas/InstrumentLabel"
+              outputFilename:
+                type: string
+                description: Must preserve the normalized instrument label, for example remuse_01_clean-guitar.mid.
+        midiFormat:
+          type: integer
+          enum: [1]
+          default: 1
+        quantization:
+          type: string
+          enum: [none, nearest-1-960, nearest-1-480, nearest-1-240]
+          default: none
+        callbackUrl:
+          type: string
+          format: uri
+    MidiConversionJobResult:
+      type: object
+      required: [providerJobId, status]
+      properties:
+        providerJobId:
+          type: string
+        status:
+          $ref: "#/components/schemas/JobStatus"
+        midiFiles:
+          type: array
+          items:
+            type: object
+            required: [stemIndex, label, midi]
+            properties:
+              stemIndex:
+                type: integer
+                minimum: 0
+              label:
+                $ref: "#/components/schemas/InstrumentLabel"
+              midi:
+                $ref: "#/components/schemas/MidiArtifactRef"
+        error:
+          $ref: "#/components/schemas/ProcessingError"

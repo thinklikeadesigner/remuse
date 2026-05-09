@@ -36,13 +36,15 @@ input AIFF
 - `MidiConversionProvider`: labeled stems to MIDI files with instrument names preserved.
 - `OpenDawProvider`: blank session creation, MIDI import, sample library assignment, and stereo bounce.
 
+The Phase 0 provider contract is captured in `contracts/external-audio-services.openapi.yaml` and summarized in `docs/architecture/phase-0-provider-contracts.md`.
+
 ## OpenDAW Integration Notes
 
-The OpenDAW integration agent should treat SDK calls as a spike until these operations are proven:
+Phase 0 findings are captured in `docs/architecture/opendaw-integration-spike.md`. The OpenDAW integration agent should treat runtime proof as the next spike until these operations are proven together in the selected runtime:
 
 - Create a blank session programmatically.
 - Create tracks from a MIDI file list.
 - Assign a sample playback device or library from an instrument label.
 - Render or export a stereo 16-bit, 44.1 kHz AIFF bounce.
 
-If the SDK cannot render headlessly yet, the adapter should expose that limitation and provide a deterministic mock/export fallback for the demo path.
+If the SDK cannot render headlessly in Node, the adapter should expose that limitation and provide a browser-worker or deterministic mock/export fallback for the demo path.

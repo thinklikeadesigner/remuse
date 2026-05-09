@@ -11,8 +11,11 @@ The repo also contains high-intensity multi-agent sprint configuration. It is bu
 - `src/demo/runMockPipeline.ts` - smoke demo for the mock pipeline.
 - `tests/unit/` - initial unit test scaffold.
 - `config/audio-midi-sprint.yaml` - source of truth for the audio application agent roster.
+- `contracts/external-audio-services.openapi.yaml` - normalized HTTP contract for external audio processing providers.
 - `config/hackathon-sprint.yaml` - source of truth for agents, worktrees, branches, ownership, cadence, and merge policy.
 - `docs/architecture/audio-midi-pipeline.md` - application architecture overview.
+- `docs/architecture/opendaw-integration-spike.md` - Phase 0 OpenDAW SDK/API findings.
+- `docs/architecture/phase-0-provider-contracts.md` - provider contract decisions and acceptance criteria.
 - `docs/agents/audio-midi-agent-map.md` - branch and worktree map for the application agents.
 - `docs/sprint-operating-model.md` - operating rules for the sprint.
 - `scripts/create_audio_app_worktrees.sh` - creates or reuses all domain-specific application agent worktrees.
@@ -45,6 +48,14 @@ Type-check and test:
 npm run check
 npm test
 ```
+
+## Integration Spike
+
+Phase 0 artifacts:
+
+- [OpenDAW integration spike](docs/architecture/opendaw-integration-spike.md)
+- [External provider contracts](docs/architecture/phase-0-provider-contracts.md)
+- [OpenAPI contract](contracts/external-audio-services.openapi.yaml)
 
 ## Audio Application Agents
 
