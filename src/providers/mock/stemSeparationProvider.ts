@@ -7,12 +7,12 @@ export class MockInstrumentStemSeparationProvider implements InstrumentStemSepar
   async separateInstruments(
     dryOnly: Parameters<InstrumentStemSeparationProvider["separateInstruments"]>[0]
   ): Promise<InstrumentStem[]> {
-    const baseName = dryOnly.filename.replace(/\.aiff?$/i, "");
+    const baseName = dryOnly.filename.replace(/\.wav$/i, "");
 
     return mockStemNames.map((stemName, index) => ({
       stem: createMockAudioArtifact({
         kind: "instrument-stem",
-        filename: `${baseName}.stem-${String(index + 1).padStart(2, "0")}.${stemName}.aiff`,
+        filename: `${baseName}.stem-${String(index + 1).padStart(2, "0")}.${stemName}.wav`,
         sourceArtifactIds: [dryOnly.id],
         durationSeconds: dryOnly.durationSeconds,
         metadata: {

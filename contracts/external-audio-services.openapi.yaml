@@ -6,6 +6,8 @@ info:
     Provider-neutral HTTP contract for de-reverb separation, instrument stem separation,
     AI instrument identification, and stem-to-MIDI conversion. Concrete vendor adapters
     may translate to vendor-specific APIs, but must expose this shape to the workflow layer.
+    Remuse uses WAV PCM 24-bit / 44.1 kHz as its canonical provider interchange format
+    and WAV PCM 16-bit / 44.1 kHz as the default user-facing final output.
 servers:
   - url: https://provider.example.com
     description: Placeholder provider base URL.
@@ -15,7 +17,7 @@ paths:
   /v1/dereverb/jobs:
     post:
       operationId: createDereverbJob
-      summary: Split an input AIFF into dry-only and reverb-only tracks.
+      summary: Split an input WAV into dry-only and reverb-only tracks.
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
       requestBody:
@@ -47,7 +49,7 @@ paths:
   /v1/stem-separation/jobs:
     post:
       operationId: createInstrumentStemSeparationJob
-      summary: Separate a dry-only AIFF into detected instrument stems.
+      summary: Separate a dry-only WAV into detected instrument stems.
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
       requestBody:
@@ -193,17 +195,20 @@ components:
           additionalProperties: true
     AudioFormat:
       type: object
-      required: [container, sampleRateHz, bitDepth, channels]
+      required: [container, codec, sampleRateHz, bitDepth, channels]
       properties:
         container:
           type: string
-          enum: [AIFF, WAV]
+          enum: [WAV]
+        codec:
+          type: string
+          enum: [PCM]
         sampleRateHz:
           type: integer
           enum: [44100]
         bitDepth:
           type: integer
-          enum: [16, 24, 32]
+          enum: [16, 24]
         channels:
           type: integer
           minimum: 1
@@ -222,7 +227,7 @@ components:
           type: string
         mediaType:
           type: string
-          enum: [audio/aiff, audio/wav]
+          enum: [audio/wav]
         sha256:
           type: string
           pattern: "^[a-f0-9]{64}$"

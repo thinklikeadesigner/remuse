@@ -8,7 +8,7 @@ test("normalizeInstrumentName creates stable filename-safe labels", () => {
 });
 
 test("inferInstrumentLabelFromName maps common names to sample libraries", () => {
-  const label = inferInstrumentLabelFromName("stem-03.clean-guitar.aiff", "stem-123");
+  const label = inferInstrumentLabelFromName("stem-03.clean-guitar.wav", "stem-123");
 
   assert.equal(label.canonicalName, "clean-guitar");
   assert.equal(label.family, "guitar");

@@ -1,9 +1,18 @@
-import type { Aiff44100Format, AudioArtifact, ArtifactKind, OpenDawSessionArtifact } from "../../pipeline/types.ts";
+import type { AudioArtifact, AudioFormat, ArtifactKind, OpenDawSessionArtifact } from "../../pipeline/types.ts";
 
 let counter = 0;
 
-export const defaultAiffFormat: Aiff44100Format = {
-  container: "AIFF",
+export const canonicalInternalWavFormat: AudioFormat = {
+  container: "WAV",
+  codec: "PCM",
+  sampleRateHz: 44100,
+  bitDepth: 24,
+  channels: 2
+};
+
+export const finalOutputWavFormat: AudioFormat = {
+  container: "WAV",
+  codec: "PCM",
   sampleRateHz: 44100,
   bitDepth: 16,
   channels: 2
@@ -19,6 +28,7 @@ export function createMockAudioArtifact<const Kind extends AudioArtifact["kind"]
   filename: string;
   sourceArtifactIds?: string[];
   durationSeconds?: number | undefined;
+  format?: AudioFormat;
   metadata?: Record<string, string | number | boolean>;
 }): AudioArtifact & { kind: Kind } {
   return {
@@ -28,7 +38,7 @@ export function createMockAudioArtifact<const Kind extends AudioArtifact["kind"]
     filename: input.filename,
     sourceArtifactIds: input.sourceArtifactIds ?? [],
     metadata: input.metadata ?? {},
-    format: defaultAiffFormat,
+    format: input.format ?? canonicalInternalWavFormat,
     ...(input.durationSeconds === undefined ? {} : { durationSeconds: input.durationSeconds })
   };
 }

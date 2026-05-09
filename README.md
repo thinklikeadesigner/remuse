@@ -1,6 +1,6 @@
 # Remuse
 
-Remuse is an audio-to-MIDI/OpenDAW application scaffold. The target workflow accepts a 16-bit, 44.1 kHz AIFF file, separates reverb and instrument stems through external providers, identifies instruments, converts stems to MIDI, builds an OpenDAW session, assigns sample libraries, and returns a stereo AIFF bounce.
+Remuse is an audio-to-MIDI/OpenDAW application scaffold. The target workflow accepts canonical WAV PCM 24-bit, 44.1 kHz audio, separates reverb and instrument stems through external providers, identifies instruments, converts stems to MIDI, builds an OpenDAW session, assigns sample libraries, and returns a stereo WAV PCM 16-bit, 44.1 kHz bounce.
 
 The repo also contains high-intensity multi-agent sprint configuration. It is built around one orchestration agent, parallel development and testing agents, dedicated review agents, and a separate Git worktree for every agent.
 

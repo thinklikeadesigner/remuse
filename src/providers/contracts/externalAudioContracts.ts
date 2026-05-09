@@ -10,9 +10,10 @@ export type ProviderProcessingError = {
 };
 
 export type ProviderAudioFormat = {
-  container: "AIFF" | "WAV";
+  container: "WAV";
+  codec: "PCM";
   sampleRateHz: 44100;
-  bitDepth: 16 | 24 | 32;
+  bitDepth: 16 | 24;
   channels: 1 | 2;
 };
 
@@ -20,7 +21,7 @@ export type ProviderAudioArtifactRef = {
   artifactId: string;
   url: string;
   filename: string;
-  mediaType: "audio/aiff" | "audio/wav";
+  mediaType: "audio/wav";
   sha256: string;
   format: ProviderAudioFormat;
   durationSeconds?: number;

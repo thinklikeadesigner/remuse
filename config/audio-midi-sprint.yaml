@@ -3,7 +3,7 @@ kind: multi-agent-orchestration
 
 metadata:
   name: remuse-audio-to-midi-opendaw-sprint
-  description: Multi-agent sprint plan for an AIFF de-reverb, stem-to-MIDI, and OpenDAW bounce application.
+  description: Multi-agent sprint plan for a WAV de-reverb, stem-to-MIDI, and OpenDAW bounce application.
   timezone: America/Chicago
   intensity: high
 
@@ -113,7 +113,7 @@ agents:
         - src/web/**
         - public/**
       deliverables:
-        - AIFF upload UI.
+        - WAV upload UI.
         - Pipeline progress view.
         - Final bounce download page.
 
@@ -145,7 +145,7 @@ agents:
         - tests/fixtures/**
         - tests/audio/**
       deliverables:
-        - AIFF fixture inventory.
+        - WAV fixture inventory.
         - Format validation tests.
         - Golden metadata snapshots.
 
@@ -246,7 +246,7 @@ definition_of_ready:
   - Unit and integration test lanes have explicit ownership.
 
 definition_of_done:
-  - User can upload a 16-bit, 44.1 kHz AIFF.
-  - Pipeline returns a stereo 16-bit, 44.1 kHz AIFF bounce.
+  - User can upload canonical WAV PCM 24-bit, 44.1 kHz audio.
+  - Pipeline returns a stereo WAV PCM 16-bit, 44.1 kHz bounce.
   - Every external provider has contract tests or recorded mock fixtures.
   - Review agents have no open P0 or P1 findings.

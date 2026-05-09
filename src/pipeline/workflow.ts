@@ -35,11 +35,11 @@ export async function runPipeline(input: PipelineJobInput, providers: PipelinePr
 
   start("validate-input", "Checking input audio format.");
   const format = input.inputAudio.format;
-  if (format.container !== "AIFF" || format.sampleRateHz !== 44100 || format.bitDepth !== 16) {
+  if (format.container !== "WAV" || format.codec !== "PCM" || format.sampleRateHz !== 44100 || format.bitDepth !== 24) {
     emit({
       step: "validate-input",
       status: "failed",
-      message: "Input must be 16-bit, 44.1 kHz AIFF.",
+      message: "Input must be canonical WAV PCM 24-bit, 44.1 kHz.",
       at: nowIso()
     });
     throw new Error("Unsupported input format.");
@@ -80,7 +80,7 @@ export async function runPipeline(input: PipelineJobInput, providers: PipelinePr
   const opendaw = await providers.opendaw.importMidiTracks(session, midi.midiFiles, context);
   succeed("opendaw-midi-import", `Imported ${opendaw.tracks.length} MIDI tracks.`);
 
-  start("opendaw-bounce", "Rendering stereo AIFF bounce.");
+  start("opendaw-bounce", "Rendering stereo WAV PCM 16-bit, 44.1 kHz bounce.");
   const bounce = await providers.opendaw.bounceSession(opendaw.session, context);
   succeed("opendaw-bounce", `Created final bounce ${bounce.bounce.filename}.`);
 

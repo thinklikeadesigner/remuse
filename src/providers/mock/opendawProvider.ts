@@ -1,5 +1,5 @@
 import type { BounceResult, MidiArtifact, OpenDawProvider, OpenDawSessionArtifact, OpenDawSessionResult } from "../../pipeline/types.ts";
-import { createMockAudioArtifact, createMockSessionArtifact } from "./artifacts.ts";
+import { createMockAudioArtifact, createMockSessionArtifact, finalOutputWavFormat } from "./artifacts.ts";
 
 export class MockOpenDawProvider implements OpenDawProvider {
   async createSession(context: Parameters<OpenDawProvider["createSession"]>[0]): Promise<OpenDawSessionArtifact> {
@@ -34,8 +34,9 @@ export class MockOpenDawProvider implements OpenDawProvider {
   async bounceSession(session: OpenDawSessionArtifact): Promise<BounceResult> {
     const bounce = createMockAudioArtifact({
       kind: "stereo-bounce",
-      filename: `${session.filename.replace(/\.opendaw$/i, "")}.bounce.aiff`,
+      filename: `${session.filename.replace(/\.opendaw$/i, "")}.bounce.wav`,
       sourceArtifactIds: [session.id],
+      format: finalOutputWavFormat,
       metadata: {
         provider: "mock-opendaw",
         renderMode: "offline-bounce"

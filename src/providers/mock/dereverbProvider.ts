@@ -3,12 +3,12 @@ import { createMockAudioArtifact } from "./artifacts.ts";
 
 export class MockDereverbProvider implements DereverbProvider {
   async splitReverb(input: Parameters<DereverbProvider["splitReverb"]>[0]): Promise<DereverbResult> {
-    const baseName = input.filename.replace(/\.aiff?$/i, "");
+    const baseName = input.filename.replace(/\.wav$/i, "");
 
     return {
       dryOnly: createMockAudioArtifact({
         kind: "dry-audio",
-        filename: `${baseName}.dry-only.aiff`,
+        filename: `${baseName}.dry-only.wav`,
         sourceArtifactIds: [input.id],
         durationSeconds: input.durationSeconds,
         metadata: {
@@ -18,7 +18,7 @@ export class MockDereverbProvider implements DereverbProvider {
       }),
       reverbOnly: createMockAudioArtifact({
         kind: "reverb-audio",
-        filename: `${baseName}.reverb-only.aiff`,
+        filename: `${baseName}.reverb-only.wav`,
         sourceArtifactIds: [input.id],
         durationSeconds: input.durationSeconds,
         metadata: {

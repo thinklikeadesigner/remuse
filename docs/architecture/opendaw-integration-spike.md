@@ -34,7 +34,7 @@ The biggest unresolved risk is not whether these concepts exist. They do. The ri
 | OpenDAW-hosted soundfont API | Confirmed | `OpenSoundfontAPI.ApiRoot` is `https://api.opendaw.studio/soundfonts`; `FileRoot` is `https://assets.opendaw.studio/soundfonts`. |
 | Offline audio render | Confirmed | `OfflineEngineRenderer.start(...)` returns `AudioData`; `AudioOfflineRenderer.start(...)` exists but is deprecated. |
 | WAV export helper | Confirmed | `AudioWavExport` exists. |
-| AIFF export helper | Not confirmed | No AIFF writer was found in inspected package declarations. Plan to render OpenDAW audio, then encode/convert to 16/44.1 AIFF outside OpenDAW. |
+| Final WAV export path | Confirmed | `AudioWavExport` exists and matches the selected default output format. |
 
 ## Proposed OpenDAW Adapter Flow
 
@@ -48,7 +48,7 @@ The biggest unresolved risk is not whether these concepts exist. They do. The ri
    - Wrap note events in a note clip/region with `createNoteClip` / `createNoteRegion`.
 4. Save the session with `project.toArrayBuffer()`.
 5. Render with `OfflineEngineRenderer.start(project, Option.None, progress, abortSignal, 44100)`.
-6. Encode final output as stereo 16-bit, 44.1 kHz AIFF in our adapter layer.
+6. Encode final output as stereo WAV PCM 16-bit, 44.1 kHz in our adapter layer.
 
 ## Sample Library Mapping
 
@@ -81,7 +81,7 @@ The adapter should store both our normalized `sampleLibraryKey` and the OpenDAW 
 
 - Use OpenDAW as an isolated adapter behind `OpenDawProvider`.
 - Target SoundFont-backed playback first.
-- Treat AIFF final encoding as our responsibility, not OpenDAW's.
+- Use WAV PCM 16-bit, 44.1 kHz as the default final output format.
 - Keep a mock OpenDAW provider until a browser/headless runtime proof passes.
 - Add a follow-up proof script owned by `opendaw-integration-dev` that imports OpenDAW packages, creates a project, creates one soundfont note track from one MIDI file, renders, and records runtime constraints.
 
@@ -90,4 +90,4 @@ The adapter should store both our normalized `sampleLibraryKey` and the OpenDAW 
 - Which runtime should own OpenDAW rendering: browser worker, Playwright-controlled browser, Electron, or Node with AudioContext/worklet polyfills?
 - Which soundfont catalog UUIDs and preset indexes map best to the Remuse instrument taxonomy?
 - Can the OpenDAW-hosted soundfont assets be used in the final deployment, or do we need bundled/licensed sample libraries?
-- What is the cleanest AIFF encoder for 16-bit, 44.1 kHz stereo output after `AudioData` render?
+- What is the cleanest path from `AudioData` to WAV PCM 16-bit, 44.1 kHz using OpenDAW's `AudioWavExport` or a small local encoder?

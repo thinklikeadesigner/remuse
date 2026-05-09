@@ -1,7 +1,8 @@
-export type Aiff44100Format = {
-  container: "AIFF";
+export type AudioFormat = {
+  container: "WAV";
+  codec: "PCM";
   sampleRateHz: 44100;
-  bitDepth: 16;
+  bitDepth: 16 | 24;
   channels: 1 | 2;
 };
 
@@ -25,7 +26,7 @@ export type ArtifactBase = {
 
 export type AudioArtifact = ArtifactBase & {
   kind: "input-audio" | "dry-audio" | "reverb-audio" | "instrument-stem" | "stereo-bounce";
-  format: Aiff44100Format;
+  format: AudioFormat;
   durationSeconds?: number;
 };
 

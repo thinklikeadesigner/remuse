@@ -9,7 +9,7 @@ const result = await runPipeline(
     jobId,
     inputAudio: createMockAudioArtifact({
       kind: "input-audio",
-      filename: "uploaded-mix.aiff",
+      filename: "uploaded-mix.wav",
       durationSeconds: 142,
       metadata: {
         uploadedBy: "demo-user"
