@@ -13,7 +13,7 @@ input WAV PCM 16-bit or 24-bit / 44.1 kHz
 -> validate format
 -> de-reverb split
 -> dry-only instrument stem separation
--> instrument identification
+-> instrument label normalization and optional human review
 -> stem-to-MIDI conversion
 -> OpenDAW blank session creation
 -> MIDI import and sample-library assignment
@@ -35,11 +35,11 @@ input WAV PCM 16-bit or 24-bit / 44.1 kHz
 
 - `DereverbProvider`: input WAV to dry-only and reverb-only WAV tracks.
 - `InstrumentStemSeparationProvider`: dry-only WAV to individual instrument stems.
-- `InstrumentIdentificationProvider`: instrument stem audio to normalized labels.
+- `InstrumentIdentificationProvider`: provider-native labels and filenames to normalized labels; non-specific labels pause for human review.
 - `MidiConversionProvider`: labeled stems to MIDI files with instrument names preserved.
 - `OpenDawProvider`: blank session creation, MIDI import, sample library assignment, and stereo bounce.
 
-The Phase 0 provider contract is captured in `contracts/external-audio-services.openapi.yaml` and summarized in `docs/architecture/phase-0-provider-contracts.md`.
+The Phase 0 provider contract is captured in `contracts/external-audio-services.openapi.yaml` and summarized in `docs/architecture/phase-0-provider-contracts.md`. Phase 3 instrument labeling is captured in `docs/architecture/phase-3-instrument-label-normalization.md`.
 
 ## OpenDAW Integration Notes
 

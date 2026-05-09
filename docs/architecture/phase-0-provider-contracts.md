@@ -18,7 +18,7 @@ The external provider APIs are intentionally normalized into one Remuse-facing c
 - Explicit media/format metadata.
 - Structured retryable/non-retryable errors.
 
-This keeps the workflow stable if we swap de-reverb, stem separation, identification, or MIDI conversion vendors.
+This keeps the workflow stable if we swap de-reverb, stem separation, or MIDI conversion vendors.
 
 ## Shared Rules
 
@@ -60,23 +60,9 @@ Output:
 Acceptance criteria:
 
 - Empty stem list is invalid for a successful job.
-- Stem order must remain stable for downstream instrument identification and MIDI conversion.
-- Provider-native labels are hints only; Remuse instrument identification remains authoritative.
-
-### Instrument Identification
-
-Input: ordered stem audio artifacts and optional provider labels.
-
-Output:
-
-- `labels[]` keyed by `stemIndex`.
-- Each label includes normalized `canonicalName`, `family`, `confidence`, and optional `midiProgram` / `sampleLibraryKey`.
-
-Acceptance criteria:
-
-- Every input stem receives one primary label.
-- `canonicalName` must be filename safe: lowercase alphanumeric plus dashes.
-- Confidence is a number from 0 to 1.
+- Stem order must remain stable for downstream label normalization and MIDI conversion.
+- Provider-native labels and stem filenames are accepted as the primary instrument source.
+- Non-specific provider labels such as `other` and `instrumental` are routed to human review before MIDI conversion.
 
 ### MIDI Conversion
 

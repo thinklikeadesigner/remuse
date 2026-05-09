@@ -32,7 +32,9 @@ export type MvsepProviderOptions = {
 export const MVSEP_DEREVERB_SEP_TYPE = 22;
 export const MVSEP_DEREVERB_MODEL_TYPE = "0";
 export const MVSEP_DEREVERB_PREPROCESS_MODE = "1";
-const mvsepBsRoformerSepType = 63;
+export const MVSEP_INSTRUMENT_STEM_SEP_TYPE = 30;
+export const MVSEP_INSTRUMENT_STEM_OUTPUT_FILES = "0";
+export const MVSEP_INSTRUMENT_STEM_MODEL_TYPE = "11";
 const defaultOutputFormat = 1;
 
 function nowIso(): string {
@@ -145,13 +147,15 @@ export class MvsepInstrumentStemSeparationProvider implements InstrumentStemSepa
   ): Promise<InstrumentStem[]> {
     const created = await this.client.createSeparation({
       inputAudio: dryOnly,
-      sepType: mvsepBsRoformerSepType,
+      sepType: MVSEP_INSTRUMENT_STEM_SEP_TYPE,
+      addOpt1: MVSEP_INSTRUMENT_STEM_OUTPUT_FILES,
+      addOpt2: MVSEP_INSTRUMENT_STEM_MODEL_TYPE,
       outputFormat: this.outputFormat
     });
     await context.emit({
       step: "instrument-stem-separation",
       status: "running",
-      message: `MVSEP instrument stem job ${created.hash} queued.`,
+      message: `MVSEP Ensemble All-In instrument stem job ${created.hash} queued.`,
       at: nowIso()
     });
 

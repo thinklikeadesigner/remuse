@@ -84,13 +84,13 @@ agents:
     - id: ai-instrument-dev
       branch: agent/ai-instrument-dev
       worktree: ../hackathon-agent-worktrees/ai-instrument-dev
-      role: AI instrument identification and label normalization.
+      role: Provider label normalization and human instrument review.
       owns:
         - src/providers/instrument-id/**
         - src/pipeline/naming.ts
       deliverables:
-        - Instrument classifier adapter.
-        - Confidence scoring and fallback labels.
+        - Provider-native label normalization.
+        - Human review workflow for non-specific stems.
         - Filename-safe label preservation.
 
     - id: opendaw-integration-dev

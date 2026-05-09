@@ -1,6 +1,6 @@
-import type { AudioArtifact, PipelineJobResult, PipelineStepEvent } from "../pipeline/types.ts";
+import type { AudioArtifact, PendingInstrumentReview, PipelineJobResult, PipelineStepEvent } from "../pipeline/types.ts";
 
-export type JobStatus = "queued" | "running" | "succeeded" | "failed";
+export type JobStatus = "queued" | "running" | "awaiting-review" | "succeeded" | "failed";
 
 export type JobError = {
   message: string;
@@ -14,6 +14,7 @@ export type PipelineJobRecord = {
   updatedAt: string;
   inputArtifact: AudioArtifact & { kind: "input-audio" };
   events: PipelineStepEvent[];
+  pendingInstrumentReview?: PendingInstrumentReview;
   result?: PipelineJobResult;
   error?: JobError;
 };

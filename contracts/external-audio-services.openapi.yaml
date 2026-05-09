@@ -4,7 +4,7 @@ info:
   version: 0.1.0
   description: >
     Provider-neutral HTTP contract for de-reverb separation, instrument stem separation,
-    AI instrument identification, and stem-to-MIDI conversion. Concrete vendor adapters
+    and stem-to-MIDI conversion. Concrete vendor adapters
     may translate to vendor-specific APIs, but must expose this shape to the workflow layer.
     Remuse uses WAV PCM 16-bit / 44.1 kHz as its working provider interchange
     and final output format, while accepting 24-bit WAV inputs when available.
@@ -78,38 +78,6 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/StemSeparationJobResult"
-  /v1/instrument-identification/jobs:
-    post:
-      operationId: createInstrumentIdentificationJob
-      summary: Identify the most likely instrument for each audio stem.
-      parameters:
-        - $ref: "#/components/parameters/IdempotencyKey"
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/InstrumentIdentificationJobRequest"
-      responses:
-        "202":
-          description: Instrument identification job accepted.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/AsyncJobAccepted"
-  /v1/instrument-identification/jobs/{jobId}:
-    get:
-      operationId: getInstrumentIdentificationJob
-      summary: Fetch instrument identification status and labels.
-      parameters:
-        - $ref: "#/components/parameters/JobId"
-      responses:
-        "200":
-          description: Instrument identification job status.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/InstrumentIdentificationJobResult"
   /v1/midi-conversion/jobs:
     post:
       operationId: createMidiConversionJob
@@ -275,7 +243,7 @@ components:
           maximum: 1
         method:
           type: string
-          enum: [ai-audio-analysis, filename-hint, manual, provider-native]
+          enum: [filename-hint, manual, provider-native]
         midiProgram:
           type: integer
           minimum: 0
@@ -348,58 +316,6 @@ components:
                 type: string
               audio:
                 $ref: "#/components/schemas/AudioArtifactRef"
-        error:
-          $ref: "#/components/schemas/ProcessingError"
-    InstrumentIdentificationJobRequest:
-      type: object
-      required: [remuseJobId, stems]
-      properties:
-        remuseJobId:
-          type: string
-        stems:
-          type: array
-          minItems: 1
-          items:
-            type: object
-            required: [stemIndex, audio]
-            properties:
-              stemIndex:
-                type: integer
-                minimum: 0
-              audio:
-                $ref: "#/components/schemas/AudioArtifactRef"
-              providerLabel:
-                type: string
-        labelTaxonomy:
-          type: string
-          enum: [remuse-v0]
-          default: remuse-v0
-        callbackUrl:
-          type: string
-          format: uri
-    InstrumentIdentificationJobResult:
-      type: object
-      required: [providerJobId, status]
-      properties:
-        providerJobId:
-          type: string
-        status:
-          $ref: "#/components/schemas/JobStatus"
-        labels:
-          type: array
-          items:
-            type: object
-            required: [stemIndex, label]
-            properties:
-              stemIndex:
-                type: integer
-                minimum: 0
-              label:
-                $ref: "#/components/schemas/InstrumentLabel"
-              alternatives:
-                type: array
-                items:
-                  $ref: "#/components/schemas/InstrumentLabel"
         error:
           $ref: "#/components/schemas/ProcessingError"
     MidiConversionJobRequest:

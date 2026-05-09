@@ -9,7 +9,7 @@ Phase 1 adds a job-based backend around the existing provider-adapter pipeline. 
 - Artifacts are stored under `var/remuse/artifacts/<job-id>/` by default.
 - Job state is stored as JSON under `var/remuse/jobs/<job-id>.json` by default.
 - The job runner updates status from `queued` to `running`, appends pipeline step events, and then marks the job `succeeded` or `failed`.
-- The current runner uses mock providers for de-reverb, instrument stem separation, instrument identification, MIDI conversion, OpenDAW session creation/import, and final bounce.
+- The current runner uses mock providers for de-reverb, instrument stem separation, provider label normalization, MIDI conversion, OpenDAW session creation/import, and final bounce.
 
 ## Local API
 

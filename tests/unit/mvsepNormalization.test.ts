@@ -57,6 +57,36 @@ test("normalizeMvsepStemLabel maps provider labels to Remuse labels", () => {
   assert.equal(label.sampleLibraryKey, "electric-bass");
 });
 
+test("normalizeMvsepStemLabel uses MVSEP filenames when labels are sparse", () => {
+  const label = normalizeMvsepStemLabel({
+    filename: "20260509183642-song_bs6stem_mt_0_guitar.wav",
+    detectedFromArtifactId: "stem-2"
+  });
+
+  assert.equal(label.canonicalName, "clean-guitar");
+  assert.equal(label.family, "guitar");
+  assert.equal(label.method, "provider-native");
+});
+
+test("normalizeMvsepStemLabel keeps MVSEP instrumental and other stems low confidence", () => {
+  const instrumental = normalizeMvsepStemLabel({
+    providerLabel: "Instrum",
+    filename: "20260509183642-song_bs6stem_mt_0_instrum.wav",
+    detectedFromArtifactId: "stem-3"
+  });
+  const other = normalizeMvsepStemLabel({
+    providerLabel: "Other",
+    filename: "20260509183642-song_bs6stem_mt_0_other.wav",
+    detectedFromArtifactId: "stem-4"
+  });
+
+  assert.equal(instrumental.canonicalName, "instrumental");
+  assert.equal(instrumental.family, "unknown");
+  assert.equal(instrumental.confidence, 0.45);
+  assert.equal(other.canonicalName, "other");
+  assert.equal(other.confidence, 0.45);
+});
+
 test("sortMvsepStemFiles keeps predictable musical stem order", () => {
   const files = extractMvsepFiles({
     data: {

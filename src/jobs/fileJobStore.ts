@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import type { PipelineJobResult, PipelineStepEvent } from "../pipeline/types.ts";
+import type { PendingInstrumentReview, PipelineJobResult, PipelineStepEvent } from "../pipeline/types.ts";
 import type { CreateJobRecordInput, JobError, JobStatus, PipelineJobRecord } from "./types.ts";
 
 export type FileJobStoreOptions = {
@@ -66,6 +66,31 @@ export class FileJobStore {
     record.status = "succeeded";
     record.result = result;
     record.events = result.events;
+    delete record.pendingInstrumentReview;
+    delete record.error;
+    record.updatedAt = nowIso();
+    await this.write(record);
+    return record;
+  }
+
+  async awaitReview(jobId: string, pendingInstrumentReview: PendingInstrumentReview): Promise<PipelineJobRecord> {
+    const record = await this.require(jobId);
+    record.status = "awaiting-review";
+    record.pendingInstrumentReview = pendingInstrumentReview;
+    delete record.error;
+    record.updatedAt = nowIso();
+    await this.write(record);
+    return record;
+  }
+
+  async updatePendingInstrumentReview(
+    jobId: string,
+    pendingInstrumentReview: PendingInstrumentReview,
+    status: JobStatus = "awaiting-review"
+  ): Promise<PipelineJobRecord> {
+    const record = await this.require(jobId);
+    record.status = status;
+    record.pendingInstrumentReview = pendingInstrumentReview;
     record.updatedAt = nowIso();
     await this.write(record);
     return record;

@@ -7,13 +7,13 @@ Date: 2026-05-09
 Use MVSEP as the first real provider for Phase 2.
 
 - De-reverb: MVSEP `Reverb Removal (noreverb)`, `sep_type=22`, `add_opt1=0` for `Reverb removal by FoxJoy (MDX23C)`.
-- Instrument separation: MVSEP `BS Roformer SW (vocals, bass, drums, guitar, piano, other)`, `sep_type=63`.
+- Instrument separation: MVSEP `Ensemble All-In (vocals, bass, drums, piano, guitar, lead/back vocals, other)`, `sep_type=30`, `add_opt1=0`, `add_opt2=11` for `SDR average: 13.67 (v. 2025.06.30)`.
 - Output target: request MVSEP `output_format=1`, WAV 16-bit.
 - Demo/privacy setting: always set `is_demo=false`.
 
 Phase 2 implementation note: WAV 16-bit is acceptable throughout the application, so no local conversion back to 24-bit WAV is needed.
 
-This keeps Phase 2 fast because one adapter family can cover both early audio-processing steps. MVSEP also exposes OpenAPI documentation, API examples, webhooks, direct upload or URL input, a detailed algorithm catalog, and Premium concurrency for queue-sensitive work.
+This keeps Phase 2 simple because one adapter family can cover both early audio-processing steps. The Ensemble All-In model is slower than BS Roformer SW, but it returns the richer set of stems ReMuse needs. MVSEP also exposes OpenAPI documentation, API examples, webhooks, direct upload or URL input, a detailed algorithm catalog, and Premium concurrency for queue-sensitive work.
 
 ## Validation Needed During Adapter Build
 

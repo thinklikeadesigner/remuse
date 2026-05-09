@@ -1,6 +1,6 @@
 import { basename } from "node:path";
-import type { InstrumentFamily, InstrumentLabel } from "../../pipeline/types.ts";
-import { normalizeInstrumentName } from "../../pipeline/naming.ts";
+import type { InstrumentLabel } from "../../pipeline/types.ts";
+import { inferInstrumentLabel, normalizeInstrumentName } from "../../pipeline/naming.ts";
 
 export type MvsepFileRef = {
   url: string;
@@ -9,27 +9,7 @@ export type MvsepFileRef = {
   raw: unknown;
 };
 
-const stemOrder = ["vocals", "drums", "bass", "guitar", "piano", "keys", "strings", "wind", "synth", "other"];
-
-const labelMap: Array<{
-  hints: string[];
-  canonicalName: string;
-  family: InstrumentFamily;
-  confidence: number;
-  midiProgram?: number;
-  sampleLibraryKey?: string;
-}> = [
-  { hints: ["vocal", "vocals", "voice", "vox"], canonicalName: "vocal", family: "vocal", confidence: 0.86, sampleLibraryKey: "vocal-synth" },
-  { hints: ["drum", "drums", "kick", "snare"], canonicalName: "drums", family: "drums", confidence: 0.88, sampleLibraryKey: "studio-drums" },
-  { hints: ["bass"], canonicalName: "electric-bass", family: "bass", confidence: 0.88, midiProgram: 33, sampleLibraryKey: "electric-bass" },
-  { hints: ["electric-guitar", "acoustic-guitar", "guitar"], canonicalName: "clean-guitar", family: "guitar", confidence: 0.84, midiProgram: 29, sampleLibraryKey: "clean-electric-guitar" },
-  { hints: ["piano"], canonicalName: "piano", family: "keys", confidence: 0.88, midiProgram: 1, sampleLibraryKey: "grand-piano" },
-  { hints: ["keys", "keyboard", "organ"], canonicalName: "keys", family: "keys", confidence: 0.78, midiProgram: 5, sampleLibraryKey: "grand-piano" },
-  { hints: ["string", "strings", "violin", "cello"], canonicalName: "strings", family: "strings", confidence: 0.78, midiProgram: 49, sampleLibraryKey: "studio-strings" },
-  { hints: ["wind", "winds", "brass", "woodwind"], canonicalName: "woodwinds", family: "woodwinds", confidence: 0.74, midiProgram: 74, sampleLibraryKey: "studio-woodwinds" },
-  { hints: ["synth", "synthesizer"], canonicalName: "synth", family: "synth", confidence: 0.78, midiProgram: 81, sampleLibraryKey: "analog-synth" },
-  { hints: ["other"], canonicalName: "other", family: "unknown", confidence: 0.45 }
-];
+const stemOrder = ["vocals", "lead", "back", "drums", "bass", "guitar", "piano", "keys", "strings", "wind", "synth", "other"];
 
 function stringValue(input: unknown): string | undefined {
   return typeof input === "string" && input.trim().length > 0 ? input : undefined;
@@ -153,19 +133,12 @@ export function normalizeMvsepStemLabel(input: {
   filename: string;
   detectedFromArtifactId: string;
 }): InstrumentLabel {
-  const searchText = normalizedSearchText(`${input.providerLabel ?? ""} ${input.filename}`);
-  const match = labelMap.find((candidate) => candidate.hints.some((hint) => searchText.includes(hint.replace(/-/g, " "))));
-  const canonicalName = match?.canonicalName ?? normalizeInstrumentName(input.providerLabel ?? input.filename);
-
-  return {
-    canonicalName,
-    family: match?.family ?? "unknown",
-    confidence: match?.confidence ?? 0.4,
+  return inferInstrumentLabel({
+    providerLabel: input.providerLabel,
+    filename: input.filename,
     detectedFromArtifactId: input.detectedFromArtifactId,
-    method: "provider-native",
-    ...(match?.midiProgram === undefined ? {} : { midiProgram: match.midiProgram }),
-    ...(match?.sampleLibraryKey === undefined ? {} : { sampleLibraryKey: match.sampleLibraryKey })
-  };
+    method: "provider-native"
+  });
 }
 
 function dryScore(file: MvsepFileRef): number {

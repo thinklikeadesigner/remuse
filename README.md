@@ -1,6 +1,6 @@
 # Remuse
 
-Remuse is an audio-to-MIDI/OpenDAW application scaffold. The target workflow accepts WAV PCM 16-bit or 24-bit, 44.1 kHz audio, separates reverb and instrument stems through external providers, identifies instruments, converts stems to MIDI, builds an OpenDAW session, assigns sample libraries, and returns a stereo WAV PCM 16-bit, 44.1 kHz bounce.
+Remuse is an audio-to-MIDI/OpenDAW application scaffold. The target workflow accepts WAV PCM 16-bit or 24-bit, 44.1 kHz audio, separates reverb and instrument stems through external providers, accepts provider-native instrument labels, pauses for human review of non-specific stems, converts labeled stems to MIDI, builds an OpenDAW session, assigns sample libraries, and returns a stereo WAV PCM 16-bit, 44.1 kHz bounce.
 
 The repo also contains high-intensity multi-agent sprint configuration. It is built around one orchestration agent, parallel development and testing agents, dedicated review agents, and a separate Git worktree for every agent.
 
@@ -51,7 +51,7 @@ Run the mock job backend:
 npm run server:mock
 ```
 
-The backend stores local runtime artifacts under `var/remuse/` by default. Submit a WAV PCM 16-bit or 24-bit, 44.1 kHz file with `POST /v1/jobs`, then poll `GET /v1/jobs/<job-id>` and fetch the completed result with `GET /v1/jobs/<job-id>/result`.
+The backend stores local runtime artifacts under `var/remuse/` by default. Submit a WAV PCM 16-bit or 24-bit, 44.1 kHz file with `POST /v1/jobs`, then poll `GET /v1/jobs/<job-id>` and fetch the completed result with `GET /v1/jobs/<job-id>/result`. If a job returns `awaiting-review`, list pending stem reviews with `GET /v1/jobs/<job-id>/review-requests`, play the clip at `GET /v1/jobs/<job-id>/review-requests/<review-id>/clip`, and submit a selection with `POST /v1/jobs/<job-id>/review-requests/<review-id>`.
 
 Type-check and test:
 
@@ -70,6 +70,7 @@ Phase 0 artifacts:
 - [Phase 1 core pipeline skeleton](docs/architecture/phase-1-core-pipeline.md)
 - [Provider selection](docs/architecture/provider-selection.md)
 - [Phase 2 audio processing integrations](docs/architecture/phase-2-audio-processing-integrations.md)
+- [Phase 3 instrument label normalization](docs/architecture/phase-3-instrument-label-normalization.md)
 
 ## Audio Application Agents
 

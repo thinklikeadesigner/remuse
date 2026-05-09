@@ -45,6 +45,6 @@ If the HTTP server cannot bind a local port in the demo environment, run `npm ru
 
 ## Known Limitations
 
-- De-reverb, stem separation, instrument identification, MIDI conversion, and OpenDAW are still deterministic mock providers.
+- De-reverb, stem separation, label normalization, MIDI conversion, and OpenDAW are still deterministic mock providers.
 - Runtime artifacts are local files under `var/remuse/` by default.
 - Final bounce output is represented as an artifact record until real OpenDAW export is connected.

@@ -11,6 +11,7 @@ export type ArtifactKind =
   | "dry-audio"
   | "reverb-audio"
   | "instrument-stem"
+  | "review-clip"
   | "midi"
   | "opendaw-session"
   | "stereo-bounce";
@@ -25,7 +26,7 @@ export type ArtifactBase = {
 };
 
 export type AudioArtifact = ArtifactBase & {
-  kind: "input-audio" | "dry-audio" | "reverb-audio" | "instrument-stem" | "stereo-bounce";
+  kind: "input-audio" | "dry-audio" | "reverb-audio" | "instrument-stem" | "review-clip" | "stereo-bounce";
   format: AudioFormat;
   durationSeconds?: number;
 };
@@ -61,9 +62,28 @@ export type InstrumentLabel = {
   family: InstrumentFamily;
   confidence: number;
   detectedFromArtifactId: string;
-  method: "ai-audio-analysis" | "filename-hint" | "manual" | "mock" | "provider-native";
+  method: "filename-hint" | "manual" | "mock" | "provider-native";
   midiProgram?: number;
   sampleLibraryKey?: string;
+};
+
+export type HumanInstrumentReviewOption = {
+  canonicalName: string;
+  displayName: string;
+  family: InstrumentFamily;
+  midiProgram?: number;
+  sampleLibraryKey?: string;
+};
+
+export type HumanInstrumentReviewRequest = {
+  id: string;
+  stemArtifactId: string;
+  stemFilename: string;
+  currentLabel: InstrumentLabel;
+  clip: AudioArtifact & { kind: "review-clip" };
+  options: HumanInstrumentReviewOption[];
+  status: "pending" | "resolved";
+  selectedLabel?: InstrumentLabel;
 };
 
 export type InstrumentStem = {
@@ -100,13 +120,14 @@ export type PipelineStepName =
   | "validate-input"
   | "de-reverb"
   | "instrument-stem-separation"
-  | "instrument-identification"
+  | "instrument-label-normalization"
+  | "manual-instrument-review"
   | "midi-conversion"
   | "opendaw-session-create"
   | "opendaw-midi-import"
   | "opendaw-bounce";
 
-export type PipelineStepStatus = "pending" | "running" | "succeeded" | "failed" | "skipped";
+export type PipelineStepStatus = "pending" | "running" | "succeeded" | "failed" | "skipped" | "awaiting-input";
 
 export type PipelineStepEvent = {
   step: PipelineStepName;
@@ -125,10 +146,24 @@ export type PipelineJobResult = {
   inputAudio: AudioArtifact & { kind: "input-audio" };
   dereverb: DereverbResult;
   instrumentStems: InstrumentStem[];
+  manualReviews?: HumanInstrumentReviewRequest[];
   midi: MidiConversionResult;
   opendaw: OpenDawSessionResult;
   bounce: BounceResult;
   events: PipelineStepEvent[];
+};
+
+export type PipelineManualReviewState = {
+  jobId: string;
+  inputAudio: AudioArtifact & { kind: "input-audio" };
+  dereverb: DereverbResult;
+  instrumentStems: InstrumentStem[];
+  events: PipelineStepEvent[];
+};
+
+export type PendingInstrumentReview = {
+  state: PipelineManualReviewState;
+  requests: HumanInstrumentReviewRequest[];
 };
 
 export type ProviderContext = {

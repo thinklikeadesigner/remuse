@@ -41,7 +41,7 @@ export type ProviderInstrumentLabel = {
   canonicalName: string;
   family: InstrumentFamily;
   confidence: number;
-  method: "ai-audio-analysis" | "filename-hint" | "manual" | "provider-native";
+  method: "filename-hint" | "manual" | "provider-native";
   midiProgram?: number;
   sampleLibraryKey?: string;
 };
@@ -83,28 +83,6 @@ export type StemSeparationJobResult = {
     stemIndex: number;
     providerLabel?: string;
     audio: ProviderAudioArtifactRef;
-  }>;
-  error?: ProviderProcessingError;
-};
-
-export type InstrumentIdentificationJobRequest = {
-  remuseJobId: string;
-  stems: Array<{
-    stemIndex: number;
-    audio: ProviderAudioArtifactRef;
-    providerLabel?: string;
-  }>;
-  labelTaxonomy?: "remuse-v0";
-  callbackUrl?: string;
-};
-
-export type InstrumentIdentificationJobResult = {
-  providerJobId: string;
-  status: ProviderJobStatus;
-  labels?: Array<{
-    stemIndex: number;
-    label: ProviderInstrumentLabel;
-    alternatives?: ProviderInstrumentLabel[];
   }>;
   error?: ProviderProcessingError;
 };
