@@ -1,9 +1,13 @@
 import type { PipelineProviders } from "../pipeline/types.ts";
 import type { FileArtifactStore } from "../storage/fileArtifactStore.ts";
+import type { MidiConversionJobRequest } from "./contracts/externalAudioContracts.ts";
+import { BasicPitchMidiConversionProvider, type BasicPitchModelSerialization } from "./midi/basicPitchMidiConversionProvider.ts";
+import { HttpMidiConversionProvider } from "./midi/httpMidiConversionProvider.ts";
 import { createMockProviders } from "./mock/index.ts";
 import { createMvsepProviders } from "./mvsep/providers.ts";
 
 export type ProviderMode = "mock" | "mvsep";
+export type MidiProviderMode = "mock" | "http" | "basic-pitch";
 
 export type ProviderEnvironment = Record<string, string | undefined>;
 
@@ -34,12 +38,105 @@ function providerModeFromEnv(env: ProviderEnvironment): ProviderMode {
   return mode;
 }
 
+function midiProviderModeFromEnv(env: ProviderEnvironment): MidiProviderMode {
+  const mode = env.REMUSE_MIDI_PROVIDER ?? "mock";
+  if (mode !== "mock" && mode !== "http" && mode !== "basic-pitch") {
+    throw new Error(`Unsupported REMUSE_MIDI_PROVIDER "${mode}". Expected "mock", "http", or "basic-pitch".`);
+  }
+
+  return mode;
+}
+
+function requiredEnv(env: ProviderEnvironment, name: string): string {
+  const value = env[name];
+  if (value === undefined || value.trim().length === 0) {
+    throw new Error(`REMUSE_MIDI_PROVIDER=http requires ${name}.`);
+  }
+
+  return value;
+}
+
+function quantizationFromEnv(value: string | undefined): MidiConversionJobRequest["quantization"] | undefined {
+  if (value === undefined || value.trim().length === 0) {
+    return undefined;
+  }
+
+  if (value === "none" || value === "nearest-1-960" || value === "nearest-1-480" || value === "nearest-1-240") {
+    return value;
+  }
+
+  throw new Error(`Unsupported MIDI_CONVERSION_QUANTIZATION "${value}".`);
+}
+
+function basicPitchModelSerializationFromEnv(value: string | undefined): BasicPitchModelSerialization | undefined {
+  if (value === undefined || value.trim().length === 0) {
+    return undefined;
+  }
+
+  if (value === "tensorflow") {
+    return "tf";
+  }
+
+  if (value === "tf" || value === "coreml" || value === "tflite" || value === "onnx") {
+    return value;
+  }
+
+  throw new Error(`Unsupported BASIC_PITCH_MODEL_SERIALIZATION "${value}".`);
+}
+
+function withConfiguredMidiProvider(
+  providers: PipelineProviders,
+  artifactStore: FileArtifactStore,
+  env: ProviderEnvironment
+): PipelineProviders {
+  const midiMode = midiProviderModeFromEnv(env);
+  if (midiMode === "mock") {
+    return providers;
+  }
+
+  if (midiMode === "basic-pitch") {
+    const modelSerialization = basicPitchModelSerializationFromEnv(env.BASIC_PITCH_MODEL_SERIALIZATION);
+
+    return {
+      ...providers,
+      midiConversion: new BasicPitchMidiConversionProvider({
+        artifactStore,
+        ...(env.BASIC_PITCH_COMMAND === undefined || env.BASIC_PITCH_COMMAND.trim().length === 0
+          ? {}
+          : { command: env.BASIC_PITCH_COMMAND.trim() }),
+        ...(modelSerialization === undefined ? {} : { modelSerialization })
+      })
+    };
+  }
+
+  const quantization = quantizationFromEnv(env.MIDI_CONVERSION_QUANTIZATION);
+  const callbackUrl = env.MIDI_CONVERSION_CALLBACK_URL?.trim();
+
+  return {
+    ...providers,
+    midiConversion: new HttpMidiConversionProvider({
+      artifactStore,
+      baseUrl: requiredEnv(env, "MIDI_CONVERSION_BASE_URL"),
+      apiToken: requiredEnv(env, "MIDI_CONVERSION_API_TOKEN"),
+      pollIntervalMs: numberFromEnv(env.MIDI_CONVERSION_POLL_INTERVAL_MS, 10_000),
+      maxPollAttempts: numberFromEnv(env.MIDI_CONVERSION_MAX_POLL_ATTEMPTS, 120),
+      ...(quantization === undefined ? {} : { quantization }),
+      ...(callbackUrl === undefined || callbackUrl.length === 0 ? {} : { callbackUrl })
+    })
+  };
+}
+
 export function createProvidersFromEnvironment(input: CreateProvidersFromEnvironmentInput): PipelineProviders {
   const env = input.env ?? process.env;
   const mode = providerModeFromEnv(env);
+  const midiMode = midiProviderModeFromEnv(env);
 
   if (mode === "mock") {
-    return createMockProviders();
+    if (midiMode === "basic-pitch") {
+      throw new Error("REMUSE_MIDI_PROVIDER=basic-pitch requires local file-backed stems. Use REMUSE_PROVIDER=mvsep or npm run demo:basic-pitch.");
+    }
+
+    return withConfiguredMidiProvider(createMockProviders(), input.artifactStore, env);
   }
 
   const apiToken = env.MVSEP_API_TOKEN;
@@ -52,12 +149,16 @@ export function createProvidersFromEnvironment(input: CreateProvidersFromEnviron
     throw new Error("The MVSEP adapter currently supports only MVSEP_OUTPUT_FORMAT=1 (WAV 16-bit).");
   }
 
-  return createMvsepProviders({
-    artifactStore: input.artifactStore,
-    apiToken,
-    ...(env.MVSEP_BASE_URL === undefined ? {} : { baseUrl: env.MVSEP_BASE_URL }),
-    outputFormat,
-    pollIntervalMs: numberFromEnv(env.MVSEP_POLL_INTERVAL_MS, 10_000),
-    maxPollAttempts: numberFromEnv(env.MVSEP_MAX_POLL_ATTEMPTS, 120)
-  });
+  return withConfiguredMidiProvider(
+    createMvsepProviders({
+      artifactStore: input.artifactStore,
+      apiToken,
+      ...(env.MVSEP_BASE_URL === undefined ? {} : { baseUrl: env.MVSEP_BASE_URL }),
+      outputFormat,
+      pollIntervalMs: numberFromEnv(env.MVSEP_POLL_INTERVAL_MS, 10_000),
+      maxPollAttempts: numberFromEnv(env.MVSEP_MAX_POLL_ATTEMPTS, 120)
+    }),
+    input.artifactStore,
+    env
+  );
 }

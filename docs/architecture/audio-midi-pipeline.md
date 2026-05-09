@@ -29,6 +29,7 @@ input WAV PCM 16-bit or 24-bit / 44.1 kHz
 - `src/jobs/**` persists job state and runs the pipeline from queued jobs.
 - `src/storage/**` persists validated input artifacts with checksum metadata.
 - `src/providers/mock/**` implements deterministic mock providers for local development and test scaffolding.
+- `src/providers/midi/**` implements Spotify Basic Pitch and provider-neutral HTTP MIDI conversion adapters.
 - Real providers should match the mock providers' behavior at the interface boundary.
 
 ## Provider Interfaces
@@ -39,7 +40,7 @@ input WAV PCM 16-bit or 24-bit / 44.1 kHz
 - `MidiConversionProvider`: labeled stems to MIDI files with instrument names preserved.
 - `OpenDawProvider`: blank session creation, MIDI import, sample library assignment, and stereo bounce.
 
-The Phase 0 provider contract is captured in `contracts/external-audio-services.openapi.yaml` and summarized in `docs/architecture/phase-0-provider-contracts.md`. Phase 3 instrument labeling is captured in `docs/architecture/phase-3-instrument-label-normalization.md`.
+The Phase 0 provider contract is captured in `contracts/external-audio-services.openapi.yaml` and summarized in `docs/architecture/phase-0-provider-contracts.md`. Phase 3 instrument labeling is captured in `docs/architecture/phase-3-instrument-label-normalization.md`. Phase 4 MIDI conversion is captured in `docs/architecture/phase-4-midi-conversion.md`.
 
 ## OpenDAW Integration Notes
 

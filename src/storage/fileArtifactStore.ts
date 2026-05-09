@@ -2,7 +2,7 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { createHash } from "node:crypto";
-import type { AudioArtifact } from "../pipeline/types.ts";
+import type { AudioArtifact, InstrumentLabel, MidiArtifact } from "../pipeline/types.ts";
 import { assertSupportedWorkflowWav, parseWavFormat } from "../audio/wav.ts";
 
 export type FileArtifactStoreOptions = {
@@ -31,9 +31,25 @@ export type StoredAudioArtifact<Kind extends AudioArtifact["kind"]> = {
   path: string;
 };
 
-function safeFilename(filename: string): string {
+export type StoreMidiArtifactInput = {
+  jobId: string;
+  stage: string;
+  filename: string;
+  bytes: Buffer;
+  sourceArtifactIds: string[];
+  instrument: InstrumentLabel;
+  metadata?: Record<string, string | number | boolean>;
+};
+
+export type StoredMidiArtifact = {
+  artifact: MidiArtifact;
+  sha256: string;
+  path: string;
+};
+
+function safeFilename(filename: string, fallback = "input.wav"): string {
   const normalized = filename.trim().toLowerCase().replace(/[^a-z0-9._-]+/g, "-").replace(/^-+|-+$/g, "");
-  return normalized.length > 0 ? normalized : "input.wav";
+  return normalized.length > 0 ? normalized : fallback;
 }
 
 function sha256(buffer: Buffer): string {
@@ -132,6 +148,37 @@ export class FileArtifactStore {
       sourceArtifactIds: input.sourceArtifactIds,
       ...(input.metadata === undefined ? {} : { metadata: input.metadata })
     });
+  }
+
+  async saveMidiArtifact(input: StoreMidiArtifactInput): Promise<StoredMidiArtifact> {
+    const artifactDir = join(this.rootDir, input.jobId, safeFilename(input.stage, "midi"));
+    await mkdir(artifactDir, { recursive: true });
+
+    const storedFilename = safeFilename(input.filename, "output.mid").replace(/\.(?:mid|midi)$/i, "") + ".mid";
+    const artifactPath = join(artifactDir, storedFilename);
+    await writeFile(artifactPath, input.bytes);
+
+    const digest = sha256(input.bytes);
+    const artifact: MidiArtifact = {
+      id: `${input.jobId}-midi-${digest.slice(0, 12)}`,
+      kind: "midi",
+      uri: pathToFileURL(artifactPath).href,
+      filename: storedFilename,
+      sourceArtifactIds: input.sourceArtifactIds,
+      metadata: {
+        ...(input.metadata ?? {}),
+        sha256: digest,
+        byteLength: input.bytes.length,
+        normalizedInstrument: input.instrument.canonicalName
+      },
+      instrument: input.instrument
+    };
+
+    return {
+      artifact,
+      sha256: digest,
+      path: artifactPath
+    };
   }
 }
 

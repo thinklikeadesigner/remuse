@@ -81,7 +81,7 @@ export type HumanInstrumentReviewRequest = {
   currentLabel: InstrumentLabel;
   clip: AudioArtifact & { kind: "review-clip" };
   options: HumanInstrumentReviewOption[];
-  status: "pending" | "resolved";
+  status: "pending" | "resolved" | "discarded";
   selectedLabel?: InstrumentLabel;
 };
 

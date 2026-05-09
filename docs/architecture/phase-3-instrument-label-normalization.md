@@ -59,11 +59,12 @@ The clip generator scans the stem for audio content and extracts a five-second W
 - Organ
 - Synthesizer
 
-Submitting a selection applies a manual label to the stem and resumes MIDI conversion.
+Submitting a selection applies a manual label to the stem. Discarding a review removes that stem from the active workflow before MIDI conversion, while leaving the original artifact on disk for debugging. The job resumes once every pending review has either been labeled or discarded.
 
 ## API Surface
 
 - `GET /v1/jobs/<job-id>` includes `pendingInstrumentReviews` when a job is waiting for user input.
+- `GET /review/<job-id>` shows the minimal browser UI for listening, labeling, or discarding pending review stems.
 - `GET /v1/jobs/<job-id>/review-requests` returns the same pending review requests.
 - `GET /v1/jobs/<job-id>/review-requests/<review-id>/clip` returns the WAV review clip.
 - `POST /v1/jobs/<job-id>/review-requests/<review-id>` accepts JSON such as `{ "instrument": "Organ" }` and resumes the job after all pending reviews are resolved.

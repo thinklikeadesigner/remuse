@@ -18,7 +18,11 @@ export class PipelineJobRunner {
   private readonly artifactStore: FileArtifactStore;
   readonly providers: PipelineProviders;
 
-  constructor(jobStore: FileJobStore, artifactStore: FileArtifactStore, providers: PipelineProviders = createMockProviders()) {
+  constructor(
+    jobStore: FileJobStore,
+    artifactStore: FileArtifactStore,
+    providers: PipelineProviders = createMockProviders()
+  ) {
     this.jobStore = jobStore;
     this.artifactStore = artifactStore;
     this.providers = providers;

@@ -11,6 +11,7 @@ The repo also contains high-intensity multi-agent sprint configuration. It is bu
 - `src/jobs/` - file-backed job records and the pipeline job runner.
 - `src/storage/` - file-backed artifact storage.
 - `src/providers/mock/` - deterministic mock providers for the full audio-to-MIDI/OpenDAW flow.
+- `src/providers/midi/` - Basic Pitch and provider-neutral HTTP MIDI conversion adapters.
 - `src/demo/runMockPipeline.ts` - smoke demo for the mock pipeline.
 - `tests/unit/` - initial unit test scaffold.
 - `config/audio-midi-sprint.yaml` - source of truth for the audio application agent roster.
@@ -51,7 +52,19 @@ Run the mock job backend:
 npm run server:mock
 ```
 
-The backend stores local runtime artifacts under `var/remuse/` by default. Submit a WAV PCM 16-bit or 24-bit, 44.1 kHz file with `POST /v1/jobs`, then poll `GET /v1/jobs/<job-id>` and fetch the completed result with `GET /v1/jobs/<job-id>/result`. If a job returns `awaiting-review`, list pending stem reviews with `GET /v1/jobs/<job-id>/review-requests`, play the clip at `GET /v1/jobs/<job-id>/review-requests/<review-id>/clip`, and submit a selection with `POST /v1/jobs/<job-id>/review-requests/<review-id>`.
+Run with local Spotify Basic Pitch MIDI conversion:
+
+```bash
+npm run demo:basic-pitch
+```
+
+For full job-server testing, combine Basic Pitch with file-backed upstream stems, currently MVSEP:
+
+```bash
+REMUSE_PROVIDER=mvsep MVSEP_API_TOKEN=<token> REMUSE_MIDI_PROVIDER=basic-pitch npm run server:mock
+```
+
+The backend stores local runtime artifacts under `var/remuse/` by default. Submit a WAV PCM 16-bit or 24-bit, 44.1 kHz file with `POST /v1/jobs`, then poll `GET /v1/jobs/<job-id>` and fetch the completed result with `GET /v1/jobs/<job-id>/result`. The `GET /review/<job-id>` page shows live job progress while the pipeline is active. The local server opens that page in the OS default browser as soon as a job is submitted, so you can watch progress from the beginning and then play review clips, label useful stems, or discard unusable/duplicate stems if manual review is needed. Set `REMUSE_AUTO_OPEN_REVIEW=0` to disable auto-open, or set `REMUSE_PUBLIC_BASE_URL` if the browser should use a non-default host/port.
 
 Type-check and test:
 
@@ -71,6 +84,7 @@ Phase 0 artifacts:
 - [Provider selection](docs/architecture/provider-selection.md)
 - [Phase 2 audio processing integrations](docs/architecture/phase-2-audio-processing-integrations.md)
 - [Phase 3 instrument label normalization](docs/architecture/phase-3-instrument-label-normalization.md)
+- [Phase 4 MIDI conversion](docs/architecture/phase-4-midi-conversion.md)
 
 ## Audio Application Agents
 

@@ -191,6 +191,10 @@ export async function continuePipelineFromManualReview(
 ): Promise<PipelineJobResult> {
   const runtime = createRuntime(state.jobId, options, state.events);
   const resolvedReviews = manualReviews.filter((request) => request.status === "resolved");
-  await runtime.succeed("manual-instrument-review", `Resolved ${resolvedReviews.length} manually labeled stem(s).`);
+  const discardedReviews = manualReviews.filter((request) => request.status === "discarded");
+  await runtime.succeed(
+    "manual-instrument-review",
+    `Completed manual review with ${resolvedReviews.length} labeled stem(s) and ${discardedReviews.length} discarded stem(s).`
+  );
   return finishPipelineFromLabeledStems(state, providers, runtime, manualReviews);
 }
