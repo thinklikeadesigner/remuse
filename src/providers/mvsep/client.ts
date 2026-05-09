@@ -56,7 +56,7 @@ async function parseJsonResponse(response: Response): Promise<unknown> {
   return JSON.parse(text) as unknown;
 }
 
-async function readArtifactBytes(artifact: AudioArtifact): Promise<Buffer> {
+export async function readArtifactBytes(artifact: AudioArtifact): Promise<Buffer> {
   const url = new URL(artifact.uri);
   if (url.protocol === "file:") {
     return readFile(fileURLToPath(url));

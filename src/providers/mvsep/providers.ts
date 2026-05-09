@@ -6,11 +6,12 @@ import type {
   PipelineProviders,
   ProviderContext
 } from "../../pipeline/types.ts";
+import { renderResidualReverbWav } from "../../audio/residual.ts";
 import { normalizeInstrumentName } from "../../pipeline/naming.ts";
 import type { FileArtifactStore } from "../../storage/fileArtifactStore.ts";
 import { createMockProviders } from "../mock/index.ts";
 import { ProviderNativeInstrumentIdentificationProvider } from "../providerNativeInstrumentIdentificationProvider.ts";
-import { MvsepClient } from "./client.ts";
+import { MvsepClient, readArtifactBytes } from "./client.ts";
 import {
   extractMvsepFiles,
   normalizeMvsepStemLabel,
@@ -83,12 +84,6 @@ export class MvsepDereverbProvider implements DereverbProvider {
       throw new Error(`MVSEP de-reverb job ${created.hash} did not return a dry/no-reverb artifact.`);
     }
 
-    if (selected.reverbOnly === undefined) {
-      throw new Error(
-        `MVSEP de-reverb job ${created.hash} did not return a reverb-only artifact; local residual rendering is not implemented yet.`
-      );
-    }
-
     const dryOnly = await this.artifactStore.saveAudioArtifactFromUrl({
       jobId: context.jobId,
       stage: "dereverb",
@@ -98,15 +93,31 @@ export class MvsepDereverbProvider implements DereverbProvider {
       sourceArtifactIds: [input.id],
       metadata: providerFileMetadata(selected.dryOnly, created.hash)
     });
-    const reverbOnly = await this.artifactStore.saveAudioArtifactFromUrl({
-      jobId: context.jobId,
-      stage: "dereverb",
-      kind: "reverb-audio",
-      filename: `${baseName(input.filename)}.reverb-only.wav`,
-      url: selected.reverbOnly.url,
-      sourceArtifactIds: [input.id],
-      metadata: providerFileMetadata(selected.reverbOnly, created.hash)
-    });
+    const reverbOnly =
+      selected.reverbOnly === undefined
+        ? await this.artifactStore.saveAudioArtifact({
+            jobId: context.jobId,
+            stage: "dereverb",
+            kind: "reverb-audio",
+            filename: `${baseName(input.filename)}.reverb-only.wav`,
+            bytes: renderResidualReverbWav(await readArtifactBytes(input), await readArtifactBytes(dryOnly.artifact)),
+            sourceArtifactIds: [input.id, dryOnly.artifact.id],
+            metadata: {
+              provider: "remuse-local-residual",
+              providerJobId: created.hash,
+              providerNative: false,
+              residualFormula: "original-minus-dry"
+            }
+          })
+        : await this.artifactStore.saveAudioArtifactFromUrl({
+            jobId: context.jobId,
+            stage: "dereverb",
+            kind: "reverb-audio",
+            filename: `${baseName(input.filename)}.reverb-only.wav`,
+            url: selected.reverbOnly.url,
+            sourceArtifactIds: [input.id],
+            metadata: providerFileMetadata(selected.reverbOnly, created.hash)
+          });
 
     return {
       dryOnly: dryOnly.artifact,

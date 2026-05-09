@@ -19,7 +19,7 @@ This keeps Phase 2 fast because one adapter family can cover both early audio-pr
 
 MVSEP's de-reverb model is documented as a reverb-removal separation type, but the docs do not clearly guarantee both `dryOnly` and `reverbOnly` artifacts for every model response. The Phase 2 adapter should inspect a live response before locking behavior.
 
-If MVSEP returns only the dry/no-reverb output, Remuse should compute `reverbOnly` locally as a phase-aligned residual from `original - dryOnly`, record `providerNative=false` on that artifact, and keep the external provider contract unchanged.
+Live MVSEP testing confirmed this can happen. Remuse computes `reverbOnly` locally as a phase-aligned residual from `original - dryOnly`, records `providerNative=false` on that artifact, and keeps the external provider contract unchanged.
 
 ## Backup Providers
 

@@ -25,7 +25,8 @@ Optional MVSEP settings:
 
 ## Implemented Adapters
 
-- `MvsepDereverbProvider`: queues MVSEP `sep_type=22` with `add_opt1=7`, `add_opt2=1`, polls until completion, downloads dry/reverb outputs, and persists them as Remuse artifacts.
+- `MvsepDereverbProvider`: queues MVSEP `sep_type=22` with `add_opt1=7`, `add_opt2=1`, polls until completion, downloads the dry/no-reverb output, and persists it as a Remuse artifact.
+- Local residual renderer: when MVSEP does not return a native reverb-only artifact, Remuse renders `reverbOnly` locally as `original - dryOnly` and persists the result as WAV PCM 16-bit, 44.1 kHz.
 - `MvsepInstrumentStemSeparationProvider`: queues MVSEP `sep_type=63`, polls until completion, downloads returned stems, normalizes provider labels, and persists local stem artifacts.
 - `ProviderNativeInstrumentIdentificationProvider`: preserves provider-native stem labels for downstream MIDI naming and sample-library choice.
 
@@ -49,4 +50,4 @@ Each persisted artifact records:
 
 MVSEP WAV 16-bit output is the intended working format for this application, so no local 24-bit transcoding step is required.
 
-MVSEP's de-reverb API must be live-tested to confirm whether it returns a separate reverb-only artifact. If it returns only dry/no-reverb audio, Remuse still needs a residual-rendering implementation for `reverbOnly`.
+Live MVSEP testing confirmed that the selected de-reverb model can return only dry/no-reverb audio. Remuse now handles that case by rendering `reverbOnly` locally as a residual artifact.
