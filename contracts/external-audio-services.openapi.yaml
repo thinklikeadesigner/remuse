@@ -236,7 +236,7 @@ components:
           pattern: "^[a-z0-9][a-z0-9-]*$"
         family:
           type: string
-          enum: [vocal, drums, bass, guitar, keys, strings, brass, woodwinds, synth, percussion, unknown]
+          enum: [vocal, drums, bass, guitar, keys, strings, wind, synth, percussion, unknown]
         confidence:
           type: number
           minimum: 0
@@ -340,7 +340,7 @@ components:
                 $ref: "#/components/schemas/InstrumentLabel"
               outputFilename:
                 type: string
-                description: Must preserve the normalized instrument label, for example remuse_01_clean-guitar.mid.
+                description: Must preserve the normalized instrument label, for example remuse_01_guitar.mid.
         midiFormat:
           type: integer
           enum: [1]

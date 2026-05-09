@@ -61,8 +61,7 @@ Use SoundFont as the first implementation target because it has the clearest pub
 | guitar | Soundfont clean guitar preset |
 | keys | Soundfont piano/electric piano preset |
 | strings | Soundfont strings preset |
-| brass | Soundfont brass preset |
-| woodwinds | Soundfont woodwind preset |
+| wind | Soundfont wind/brass/woodwind preset |
 | synth | Soundfont synth preset |
 | percussion | Soundfont percussion preset |
 | vocal | Fallback synth/vocal pad preset until a better library is available |

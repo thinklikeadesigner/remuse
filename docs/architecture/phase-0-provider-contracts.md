@@ -30,7 +30,7 @@ This keeps the workflow stable if we swap de-reverb, stem separation, or MIDI co
 - Each provider result includes `providerJobId`, `status`, and either outputs or a structured `error`.
 - `failed` jobs must set `error.retryable`.
 - MIDI conversion outputs MIDI format 1 by default.
-- MIDI filenames must preserve normalized instrument names, for example `job-7_03_clean-guitar.mid`.
+- MIDI filenames must preserve normalized instrument names, for example `job-7_03_guitar.mid`.
 
 ## Provider Contracts
 

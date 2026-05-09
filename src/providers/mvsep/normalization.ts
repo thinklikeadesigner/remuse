@@ -9,7 +9,23 @@ export type MvsepFileRef = {
   raw: unknown;
 };
 
-const stemOrder = ["vocals", "lead", "back", "drums", "bass", "guitar", "piano", "keys", "strings", "wind", "synth", "other"];
+const stemOrder = [
+  "vocals",
+  "lead-vocals",
+  "back-vocals",
+  "drums",
+  "kick",
+  "snare",
+  "toms",
+  "cymbals",
+  "bass",
+  "guitar",
+  "piano",
+  "strings",
+  "wind",
+  "instrum",
+  "other"
+];
 
 function stringValue(input: unknown): string | undefined {
   return typeof input === "string" && input.trim().length > 0 ? input : undefined;
@@ -179,10 +195,10 @@ export function selectDereverbFiles(files: MvsepFileRef[]): {
 
 export function sortMvsepStemFiles(files: MvsepFileRef[]): MvsepFileRef[] {
   return [...files].sort((left, right) => {
-    const leftText = normalizedSearchText(`${left.label} ${left.filename}`);
-    const rightText = normalizedSearchText(`${right.label} ${right.filename}`);
-    const leftIndex = stemOrder.findIndex((stem) => leftText.includes(stem));
-    const rightIndex = stemOrder.findIndex((stem) => rightText.includes(stem));
+    const leftLabel = inferInstrumentLabel({ providerLabel: left.label, filename: left.filename, detectedFromArtifactId: "sort-left" });
+    const rightLabel = inferInstrumentLabel({ providerLabel: right.label, filename: right.filename, detectedFromArtifactId: "sort-right" });
+    const leftIndex = stemOrder.indexOf(leftLabel.canonicalName);
+    const rightIndex = stemOrder.indexOf(rightLabel.canonicalName);
     const safeLeftIndex = leftIndex === -1 ? stemOrder.length : leftIndex;
     const safeRightIndex = rightIndex === -1 ? stemOrder.length : rightIndex;
     return safeLeftIndex - safeRightIndex || left.filename.localeCompare(right.filename);

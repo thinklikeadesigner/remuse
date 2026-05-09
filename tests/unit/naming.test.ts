@@ -19,9 +19,34 @@ test("normalizeInstrumentName creates stable filename-safe labels", () => {
 test("inferInstrumentLabelFromName maps common names to sample libraries", () => {
   const label = inferInstrumentLabelFromName("stem-03.clean-guitar.wav", "stem-123");
 
-  assert.equal(label.canonicalName, "clean-guitar");
+  assert.equal(label.canonicalName, "guitar");
   assert.equal(label.family, "guitar");
   assert.equal(label.sampleLibraryKey, "clean-electric-guitar");
+});
+
+test("inferInstrumentLabel covers MVSEP Ensemble All-In stem inventory", () => {
+  const labels = [
+    ["vocals", "vocals"],
+    ["lead vocals", "lead-vocals"],
+    ["back vocals", "back-vocals"],
+    ["drums", "drums"],
+    ["kick", "kick"],
+    ["snare", "snare"],
+    ["toms", "toms"],
+    ["cymbals", "cymbals"],
+    ["bass", "bass"],
+    ["guitar", "guitar"],
+    ["piano", "piano"],
+    ["strings", "strings"],
+    ["wind", "wind"],
+    ["instrum", "instrumental"],
+    ["other", "other"]
+  ] as const;
+
+  assert.deepEqual(
+    labels.map(([providerLabel, expected]) => inferInstrumentLabel({ providerLabel, detectedFromArtifactId: providerLabel }).canonicalName),
+    labels.map(([, expected]) => expected)
+  );
 });
 
 test("instrumentNameCandidateFromFilename extracts provider stem suffixes", () => {
@@ -48,7 +73,7 @@ test("inferInstrumentLabel trusts provider labels before filename fallback", () 
     detectedFromArtifactId: "stem-234"
   });
 
-  assert.equal(label.canonicalName, "electric-bass");
+  assert.equal(label.canonicalName, "bass");
   assert.equal(label.method, "provider-native");
   assert.equal(label.sampleLibraryKey, "electric-bass");
   assert.equal(needsHumanInstrumentReview(label), false);
@@ -57,7 +82,7 @@ test("inferInstrumentLabel trusts provider labels before filename fallback", () 
 test("manual review options cover non-MVSEP instrument choices", () => {
   assert.deepEqual(
     humanInstrumentReviewOptions().map((option) => option.displayName),
-    ["Brass", "Woodwinds", "Percussion", "Strings", "Organ", "Synthesizer"]
+    ["Percussion", "Organ", "Synthesizer"]
   );
 
   const label = labelForManualInstrumentSelection("Synthesizer", "stem-999");

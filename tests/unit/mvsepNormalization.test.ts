@@ -51,7 +51,7 @@ test("normalizeMvsepStemLabel maps provider labels to Remuse labels", () => {
     detectedFromArtifactId: "stem-1"
   });
 
-  assert.equal(label.canonicalName, "electric-bass");
+  assert.equal(label.canonicalName, "bass");
   assert.equal(label.family, "bass");
   assert.equal(label.method, "provider-native");
   assert.equal(label.sampleLibraryKey, "electric-bass");
@@ -63,7 +63,7 @@ test("normalizeMvsepStemLabel uses MVSEP filenames when labels are sparse", () =
     detectedFromArtifactId: "stem-2"
   });
 
-  assert.equal(label.canonicalName, "clean-guitar");
+  assert.equal(label.canonicalName, "guitar");
   assert.equal(label.family, "guitar");
   assert.equal(label.method, "provider-native");
 });
@@ -91,7 +91,10 @@ test("sortMvsepStemFiles keeps predictable musical stem order", () => {
   const files = extractMvsepFiles({
     data: {
       files: [
+        { label: "wind", url: "https://cdn.example.test/wind.wav" },
+        { label: "snare", url: "https://cdn.example.test/snare.wav" },
         { label: "piano", url: "https://cdn.example.test/piano.wav" },
+        { label: "back vocals", url: "https://cdn.example.test/back-vocals.wav" },
         { label: "vocals", url: "https://cdn.example.test/vocals.wav" },
         { label: "drums", url: "https://cdn.example.test/drums.wav" }
       ]
@@ -100,6 +103,6 @@ test("sortMvsepStemFiles keeps predictable musical stem order", () => {
 
   assert.deepEqual(
     sortMvsepStemFiles(files).map((file) => file.label),
-    ["vocals", "drums", "piano"]
+    ["vocals", "back vocals", "drums", "snare", "piano", "wind"]
   );
 });

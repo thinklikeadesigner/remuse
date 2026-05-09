@@ -1,7 +1,7 @@
 import type { InstrumentStem, InstrumentStemSeparationProvider } from "../../pipeline/types.ts";
 import { createMockAudioArtifact } from "./artifacts.ts";
 
-const mockStemNames = ["drums", "electric-bass", "clean-guitar", "piano"];
+const mockStemNames = ["drums", "bass", "guitar", "piano"];
 
 export class MockInstrumentStemSeparationProvider implements InstrumentStemSeparationProvider {
   async separateInstruments(

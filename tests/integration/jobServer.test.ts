@@ -106,7 +106,7 @@ test("job backend pauses for human review of non-specific stems and resumes afte
   assert.equal(status.status, "awaiting-review");
   assert.deepEqual(
     status.pendingInstrumentReviews[0]?.options.map((option) => option.displayName),
-    ["Brass", "Woodwinds", "Percussion", "Strings", "Organ", "Synthesizer"]
+    ["Percussion", "Organ", "Synthesizer"]
   );
   assert.equal(status.pendingInstrumentReviews[0]?.clip.metadata.containsAudio, true);
   assert.ok((status.pendingInstrumentReviews[0]?.clip.metadata.clipStartSeconds ?? 0) > 0);
@@ -116,7 +116,7 @@ test("job backend pauses for human review of non-specific stems and resumes afte
   const clip = await app.api.getInstrumentReviewClip(created.jobId, reviewId);
   assert.equal(parseWavFormat(clip.bytes).durationSeconds, 5);
 
-  await app.api.submitInstrumentReview(created.jobId, reviewId, "Brass");
+  await app.api.submitInstrumentReview(created.jobId, reviewId, "Organ");
 
   let resumedStatus = (await app.api.getJobStatus(created.jobId)) as { status: string };
   for (let attempt = 0; attempt < 20 && resumedStatus.status !== "succeeded"; attempt += 1) {
@@ -131,6 +131,6 @@ test("job backend pauses for human review of non-specific stems and resumes afte
     midi: { midiFiles: Array<{ filename: string }> };
   };
 
-  assert.equal(result.manualReviews[0]?.selectedLabel.canonicalName, "brass");
-  assert.equal(result.midi.midiFiles[0]?.filename.endsWith("_brass.mid"), true);
+  assert.equal(result.manualReviews[0]?.selectedLabel.canonicalName, "organ");
+  assert.equal(result.midi.midiFiles[0]?.filename.endsWith("_organ.mid"), true);
 });

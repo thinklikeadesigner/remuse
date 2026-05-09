@@ -51,8 +51,7 @@ export type InstrumentFamily =
   | "guitar"
   | "keys"
   | "strings"
-  | "brass"
-  | "woodwinds"
+  | "wind"
   | "synth"
   | "percussion"
   | "unknown";
