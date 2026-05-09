@@ -1,0 +1,279 @@
+version: "1.0"
+kind: multi-agent-orchestration
+
+metadata:
+  name: hackathon-high-intensity-sprint
+  description: Parallel delivery configuration for a demo-focused hackathon sprint.
+  timezone: America/Chicago
+  intensity: high
+  sprint_window:
+    duration_hours: 48
+    checkpoint_interval_minutes: 60
+    demo_freeze_hours_before_end: 3
+
+repository:
+  name: hackathon-sprint-orchestration
+  default_branch: main
+  release_branch: release/demo
+  branch_namespace: agent
+  main_worktree: .
+  worktree_root: ../hackathon-agent-worktrees
+  branch_policy:
+    one_branch_per_agent: true
+    rebase_from_main_at_checkpoints: true
+    squash_merge_to_main: true
+    require_review_before_merge: true
+
+coordination:
+  orchestrator_agent: sprint-orchestrator
+  heartbeat:
+    standup_interval_minutes: 30
+    integration_window_minutes: 90
+    blocker_response_minutes: 10
+  shared_artifacts:
+    product_brief: docs/product-brief.md
+    decision_log: docs/decision-log.md
+    integration_board: docs/integration-board.md
+  conflict_rules:
+    - Agents own the paths listed in their ownership blocks.
+    - Cross-owned edits require a handoff note to sprint-orchestrator.
+    - Testing agents may add tests for any lane but should not rewrite feature implementation.
+    - Review agents only patch documentation or review notes unless explicitly assigned a fix.
+
+agents:
+  orchestration:
+    - id: sprint-orchestrator
+      role: Sprint commander and integration owner.
+      branch: agent/sprint-orchestrator
+      worktree: ../hackathon-agent-worktrees/sprint-orchestrator
+      mission:
+        - Maintain sprint priorities, ownership boundaries, and the integration queue.
+        - Resolve blockers and decide when scope gets cut or merged.
+        - Batch completed agent branches into main after review approval.
+      owns:
+        - config/**
+        - docs/decision-log.md
+        - docs/integration-board.md
+      outputs:
+        - Prioritized build queue.
+        - Integration batch notes.
+        - Final demo readiness call.
+
+  development:
+    - id: frontend-dev
+      role: Frontend feature development.
+      branch: agent/frontend-dev
+      worktree: ../hackathon-agent-worktrees/frontend-dev
+      owns:
+        - apps/web/**
+        - packages/ui/**
+        - public/**
+      focus:
+        - Demo-critical user flows.
+        - Responsive visual polish.
+        - Loading, empty, and error states.
+      handoff_contract:
+        ready_when:
+          - Primary happy path is usable without console errors.
+          - Screens have stable selectors or test ids for automation.
+          - Known limitations are logged in docs/integration-board.md.
+
+    - id: backend-api-dev
+      role: Backend API and persistence development.
+      branch: agent/backend-api-dev
+      worktree: ../hackathon-agent-worktrees/backend-api-dev
+      owns:
+        - apps/api/**
+        - packages/domain/**
+        - migrations/**
+      focus:
+        - Demo endpoints.
+        - Data contracts.
+        - Persistence and seed data.
+      handoff_contract:
+        ready_when:
+          - API routes return deterministic demo data.
+          - Contract changes are reflected in tests or fixtures.
+          - Seed/reset command exists for demo rehearsal.
+
+    - id: ai-workflows-dev
+      role: AI workflow and agent integration development.
+      branch: agent/ai-workflows-dev
+      worktree: ../hackathon-agent-worktrees/ai-workflows-dev
+      owns:
+        - packages/ai/**
+        - prompts/**
+        - evals/**
+      focus:
+        - Prompt flows.
+        - Tool orchestration.
+        - Lightweight evaluations for demo scenarios.
+      handoff_contract:
+        ready_when:
+          - Prompts are versioned and scenario-labeled.
+          - Failure fallback behavior is documented.
+          - Mock mode is available for offline demo rehearsal.
+
+    - id: platform-infra-dev
+      role: Build, deployment, and developer experience.
+      branch: agent/platform-infra-dev
+      worktree: ../hackathon-agent-worktrees/platform-infra-dev
+      owns:
+        - .github/**
+        - infra/**
+        - scripts/**
+        - docker-compose.yml
+        - package.json
+      focus:
+        - One-command local startup.
+        - CI smoke checks.
+        - Demo deployment path.
+      handoff_contract:
+        ready_when:
+          - New contributors can boot the project from README steps.
+          - CI catches formatting, lint, unit, and smoke failures.
+          - Deployment instructions include rollback notes.
+
+  testing:
+    - id: qa-automation
+      role: Functional test automation.
+      branch: agent/qa-automation
+      worktree: ../hackathon-agent-worktrees/qa-automation
+      owns:
+        - tests/functional/**
+        - tests/fixtures/**
+        - playwright.config.*
+      focus:
+        - Golden-path automation.
+        - Regression tests for merged stories.
+        - Smoke suite used before each integration batch.
+      entry_criteria:
+        - Feature branch has a handoff note.
+        - Local startup command succeeds or has a documented mock mode.
+
+    - id: e2e-performance-test
+      role: End-to-end, load, and demo resilience testing.
+      branch: agent/e2e-performance-test
+      worktree: ../hackathon-agent-worktrees/e2e-performance-test
+      owns:
+        - tests/e2e/**
+        - tests/performance/**
+        - reports/performance/**
+      focus:
+        - Full demo path reliability.
+        - Basic latency and stability checks.
+        - Failure reproduction notes.
+      entry_criteria:
+        - Frontend and backend demo paths are integrated.
+        - Seed data exists.
+
+    - id: security-regression-test
+      role: Security, privacy, and abuse-case testing.
+      branch: agent/security-regression-test
+      worktree: ../hackathon-agent-worktrees/security-regression-test
+      owns:
+        - tests/security/**
+        - reports/security/**
+      focus:
+        - Secret handling.
+        - Auth and authorization boundaries.
+        - Input validation and unsafe output checks.
+      entry_criteria:
+        - Auth and data access paths are known.
+        - Environment variable inventory is available.
+
+  review:
+    - id: architecture-review
+      role: Architecture and system design reviewer.
+      branch: agent/architecture-review
+      worktree: ../hackathon-agent-worktrees/architecture-review
+      owns:
+        - reviews/architecture/**
+      review_scope:
+        - Cross-agent contracts.
+        - Coupling and maintainability risks.
+        - Feasibility of demo freeze plan.
+      approval_required_for:
+        - Cross-cutting architecture changes.
+        - Shared package contract changes.
+        - Release branch creation.
+
+    - id: code-review
+      role: Code quality and merge readiness reviewer.
+      branch: agent/code-review
+      worktree: ../hackathon-agent-worktrees/code-review
+      owns:
+        - reviews/code/**
+      review_scope:
+        - Correctness bugs.
+        - Missing tests.
+        - Risky shortcuts that could break the demo.
+      approval_required_for:
+        - Every merge into main.
+        - Every hotfix after demo freeze.
+
+    - id: release-readiness-review
+      role: Demo, release, and go/no-go reviewer.
+      branch: agent/release-readiness-review
+      worktree: ../hackathon-agent-worktrees/release-readiness-review
+      owns:
+        - reviews/release/**
+        - docs/demo-runbook.md
+      review_scope:
+        - Demo script.
+        - Rollback path.
+        - Known limitations.
+        - Final smoke test evidence.
+      approval_required_for:
+        - Demo freeze.
+        - Final release/demo branch.
+
+merge_pipeline:
+  steps:
+    - name: collect_handoff
+      owner: sprint-orchestrator
+      requires:
+        - Agent branch pushed or locally available.
+        - Handoff note with scope, tests, risks, and screenshots when UI changed.
+    - name: smoke_test
+      owner: qa-automation
+      requires:
+        - Local boot succeeds.
+        - Critical path test passes.
+    - name: code_review
+      owner: code-review
+      requires:
+        - Diff is scoped to declared ownership or has orchestrator approval.
+        - Test evidence is attached.
+    - name: architecture_review
+      owner: architecture-review
+      required_when:
+        - Shared contracts, storage, auth, deployment, or AI workflow boundaries changed.
+    - name: merge_to_main
+      owner: sprint-orchestrator
+      requires:
+        - Required reviews approved.
+        - No unresolved P0 or P1 issues.
+    - name: release_candidate
+      owner: release-readiness-review
+      requires:
+        - Main passes final smoke suite.
+        - Demo runbook is current.
+
+severity_model:
+  p0: Blocks demo or corrupts user-visible data.
+  p1: Breaks a core demo path or creates credible security/privacy risk.
+  p2: Noticeable defect with workaround.
+  p3: Polish, cleanup, or post-hackathon follow-up.
+
+demo_freeze:
+  starts_hours_before_end: 3
+  allowed_changes:
+    - p0_fix
+    - p1_fix
+    - demo_script_update
+    - rollback_or_deployment_fix
+  requires_approvals:
+    - sprint-orchestrator
+    - code-review
+    - release-readiness-review
