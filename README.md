@@ -69,6 +69,7 @@ Phase 0 artifacts:
 - [OpenAPI contract](contracts/external-audio-services.openapi.yaml)
 - [Phase 1 core pipeline skeleton](docs/architecture/phase-1-core-pipeline.md)
 - [Provider selection](docs/architecture/provider-selection.md)
+- [Phase 2 audio processing integrations](docs/architecture/phase-2-audio-processing-integrations.md)
 
 ## Audio Application Agents
 

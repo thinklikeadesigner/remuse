@@ -11,6 +11,8 @@ Use MVSEP as the first real provider for Phase 2.
 - Output target: request a lossless MVSEP format, preferably FLAC 24-bit where available, then normalize back to Remuse canonical WAV PCM 24-bit, 44.1 kHz inside the adapter.
 - Demo/privacy setting: always set `is_demo=false`.
 
+Phase 2 implementation note: the first MVSEP adapter requests `output_format=1` (WAV 16-bit) until Remuse has a local transcode step that can safely normalize MVSEP FLAC 24-bit output back to WAV PCM 24-bit, 44.1 kHz.
+
 This keeps Phase 2 fast because one adapter family can cover both early audio-processing steps. MVSEP also exposes OpenAPI documentation, API examples, webhooks, direct upload or URL input, a detailed algorithm catalog, and Premium concurrency for queue-sensitive work.
 
 ## Validation Needed During Adapter Build

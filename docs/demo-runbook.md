@@ -22,6 +22,12 @@ Run the Phase 1 mock job backend:
 npm run server:mock
 ```
 
+Run the Phase 2 MVSEP-backed job backend:
+
+```bash
+REMUSE_PROVIDER=mvsep MVSEP_API_TOKEN=<token> npm run server:mock
+```
+
 Submit a canonical WAV PCM 24-bit, 44.1 kHz file:
 
 ```bash

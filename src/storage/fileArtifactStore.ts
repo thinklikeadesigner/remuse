@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { createHash } from "node:crypto";
 import type { AudioArtifact } from "../pipeline/types.ts";
-import { assertCanonicalInternalWav } from "../audio/wav.ts";
+import { assertCanonicalInternalWav, parseWavFormat } from "../audio/wav.ts";
 
 export type FileArtifactStoreOptions = {
   rootDir: string;
@@ -11,6 +11,22 @@ export type FileArtifactStoreOptions = {
 
 export type StoredInputArtifact = {
   artifact: AudioArtifact & { kind: "input-audio" };
+  sha256: string;
+  path: string;
+};
+
+export type StoreAudioArtifactInput<Kind extends AudioArtifact["kind"]> = {
+  jobId: string;
+  stage: string;
+  kind: Kind;
+  filename: string;
+  bytes: Buffer;
+  sourceArtifactIds: string[];
+  metadata?: Record<string, string | number | boolean>;
+};
+
+export type StoredAudioArtifact<Kind extends AudioArtifact["kind"]> = {
+  artifact: AudioArtifact & { kind: Kind };
   sha256: string;
   path: string;
 };
@@ -62,4 +78,63 @@ export class FileArtifactStore {
       path: artifactPath
     };
   }
+
+  async saveAudioArtifact<Kind extends AudioArtifact["kind"]>(
+    input: StoreAudioArtifactInput<Kind>
+  ): Promise<StoredAudioArtifact<Kind>> {
+    const parsed = assertCanonicalWavFamily(input.bytes);
+    const artifactDir = join(this.rootDir, input.jobId, safeFilename(input.stage));
+    await mkdir(artifactDir, { recursive: true });
+
+    const storedFilename = safeFilename(input.filename).replace(/\.wav$/i, "") + ".wav";
+    const artifactPath = join(artifactDir, storedFilename);
+    await writeFile(artifactPath, input.bytes);
+
+    const digest = sha256(input.bytes);
+    const artifact: AudioArtifact & { kind: Kind } = {
+      id: `${input.jobId}-${input.kind}-${digest.slice(0, 12)}`,
+      kind: input.kind,
+      uri: pathToFileURL(artifactPath).href,
+      filename: storedFilename,
+      sourceArtifactIds: input.sourceArtifactIds,
+      metadata: {
+        ...(input.metadata ?? {}),
+        sha256: digest,
+        byteLength: input.bytes.length,
+        dataBytes: parsed.dataBytes
+      },
+      format: parsed.format,
+      ...(parsed.durationSeconds === undefined ? {} : { durationSeconds: parsed.durationSeconds })
+    };
+
+    return {
+      artifact,
+      sha256: digest,
+      path: artifactPath
+    };
+  }
+
+  async saveAudioArtifactFromUrl<Kind extends AudioArtifact["kind"]>(
+    input: Omit<StoreAudioArtifactInput<Kind>, "bytes"> & { url: string }
+  ): Promise<StoredAudioArtifact<Kind>> {
+    const response = await fetch(input.url);
+    if (!response.ok) {
+      throw new Error(`Could not download artifact ${input.url}: ${response.status} ${response.statusText}`);
+    }
+
+    const bytes = Buffer.from(await response.arrayBuffer());
+    return this.saveAudioArtifact({
+      jobId: input.jobId,
+      stage: input.stage,
+      kind: input.kind,
+      filename: input.filename,
+      bytes,
+      sourceArtifactIds: input.sourceArtifactIds,
+      ...(input.metadata === undefined ? {} : { metadata: input.metadata })
+    });
+  }
+}
+
+function assertCanonicalWavFamily(buffer: Buffer) {
+  return parseWavFormat(buffer);
 }

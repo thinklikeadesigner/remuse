@@ -9,7 +9,7 @@ import { FileArtifactStore } from "../storage/fileArtifactStore.ts";
 
 export type JobServerOptions = {
   rootDir: string;
-  providers?: PipelineProviders;
+  providers?: PipelineProviders | ((context: { artifactStore: FileArtifactStore }) => PipelineProviders);
   maxUploadBytes?: number;
 };
 
@@ -197,7 +197,8 @@ export class JobApi {
 export function createJobServer(options: JobServerOptions): JobServerApp {
   const artifactStore = new FileArtifactStore({ rootDir: join(options.rootDir, "artifacts") });
   const jobStore = new FileJobStore({ rootDir: join(options.rootDir, "jobs") });
-  const runner = new PipelineJobRunner(jobStore, options.providers);
+  const providers = typeof options.providers === "function" ? options.providers({ artifactStore }) : options.providers;
+  const runner = new PipelineJobRunner(jobStore, providers);
   const maxUploadBytes = options.maxUploadBytes ?? defaultMaxUploadBytes;
   const api = new JobApi(artifactStore, jobStore, runner, maxUploadBytes);
 

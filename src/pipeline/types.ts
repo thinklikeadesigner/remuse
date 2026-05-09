@@ -61,7 +61,7 @@ export type InstrumentLabel = {
   family: InstrumentFamily;
   confidence: number;
   detectedFromArtifactId: string;
-  method: "ai-audio-analysis" | "filename-hint" | "manual" | "mock";
+  method: "ai-audio-analysis" | "filename-hint" | "manual" | "mock" | "provider-native";
   midiProgram?: number;
   sampleLibraryKey?: string;
 };
