@@ -29,7 +29,9 @@ export type MvsepProviderOptions = {
   maxPollAttempts?: number;
 };
 
-const mvsepDereverbSepType = 22;
+export const MVSEP_DEREVERB_SEP_TYPE = 22;
+export const MVSEP_DEREVERB_MODEL_TYPE = "0";
+export const MVSEP_DEREVERB_PREPROCESS_MODE = "1";
 const mvsepBsRoformerSepType = 63;
 const defaultOutputFormat = 1;
 
@@ -65,9 +67,9 @@ export class MvsepDereverbProvider implements DereverbProvider {
   async splitReverb(input: Parameters<DereverbProvider["splitReverb"]>[0], context: ProviderContext): Promise<DereverbResult> {
     const created = await this.client.createSeparation({
       inputAudio: input,
-      sepType: mvsepDereverbSepType,
-      addOpt1: "7",
-      addOpt2: "1",
+      sepType: MVSEP_DEREVERB_SEP_TYPE,
+      addOpt1: MVSEP_DEREVERB_MODEL_TYPE,
+      addOpt2: MVSEP_DEREVERB_PREPROCESS_MODE,
       outputFormat: this.outputFormat
     });
     await context.emit({

@@ -6,7 +6,7 @@ Date: 2026-05-09
 
 Use MVSEP as the first real provider for Phase 2.
 
-- De-reverb: MVSEP `Reverb Removal (noreverb)` model, `sep_type=22`.
+- De-reverb: MVSEP `Reverb Removal (noreverb)`, `sep_type=22`, `add_opt1=0` for `Reverb removal by FoxJoy (MDX23C)`.
 - Instrument separation: MVSEP `BS Roformer SW (vocals, bass, drums, guitar, piano, other)`, `sep_type=63`.
 - Output target: request MVSEP `output_format=1`, WAV 16-bit.
 - Demo/privacy setting: always set `is_demo=false`.
