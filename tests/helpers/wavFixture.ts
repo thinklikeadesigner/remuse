@@ -6,7 +6,7 @@ export function createPcmWavFixture(input: {
 } = {}): Buffer {
   const sampleRateHz = input.sampleRateHz ?? 44100;
   const channels = input.channels ?? 2;
-  const bitDepth = input.bitDepth ?? 24;
+  const bitDepth = input.bitDepth ?? 16;
   const frames = input.frames ?? 8;
   const bytesPerSample = bitDepth / 8;
   const blockAlign = channels * bytesPerSample;

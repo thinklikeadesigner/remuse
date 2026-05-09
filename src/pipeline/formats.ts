@@ -4,7 +4,7 @@ export const CANONICAL_INTERNAL_WAV_FORMAT: AudioFormat = {
   container: "WAV",
   codec: "PCM",
   sampleRateHz: 44100,
-  bitDepth: 24,
+  bitDepth: 16,
   channels: 2
 };
 
@@ -23,4 +23,8 @@ export function isCanonicalInternalWav(format: AudioFormat): boolean {
     format.sampleRateHz === CANONICAL_INTERNAL_WAV_FORMAT.sampleRateHz &&
     format.bitDepth === CANONICAL_INTERNAL_WAV_FORMAT.bitDepth
   );
+}
+
+export function isSupportedWorkflowWav(format: AudioFormat): boolean {
+  return format.container === "WAV" && format.codec === "PCM" && format.sampleRateHz === 44100;
 }

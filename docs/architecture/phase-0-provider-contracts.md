@@ -22,9 +22,9 @@ This keeps the workflow stable if we swap de-reverb, stem separation, identifica
 
 ## Shared Rules
 
-- All audio input to the first step must be canonical WAV PCM 24-bit, 44.1 kHz.
-- Intermediate provider outputs must remain WAV PCM 24-bit, 44.1 kHz unless a provider adapter records a justified exception and normalizes back to the canonical format.
-- Remuse normalizes user-facing final audio to stereo WAV PCM 16-bit, 44.1 kHz.
+- All audio input to the first step must be WAV PCM 16-bit or 24-bit, 44.1 kHz.
+- Intermediate provider outputs should remain WAV PCM 16-bit, 44.1 kHz unless a provider adapter records a justified exception.
+- Remuse uses stereo WAV PCM 16-bit, 44.1 kHz as the working and final audio format.
 - Provider input artifacts are signed HTTPS URLs readable for at least 30 minutes.
 - Every provider call uses an `Idempotency-Key`.
 - Each provider result includes `providerJobId`, `status`, and either outputs or a structured `error`.
@@ -36,7 +36,7 @@ This keeps the workflow stable if we swap de-reverb, stem separation, identifica
 
 ### De-Reverb
 
-Input: canonical WAV PCM 24-bit, 44.1 kHz artifact.
+Input: WAV PCM 16-bit or 24-bit, 44.1 kHz artifact.
 
 Output:
 
@@ -46,7 +46,7 @@ Output:
 Acceptance criteria:
 
 - Output tracks align with original duration.
-- Output format is WAV PCM 24-bit, 44.1 kHz and mono/stereo as declared.
+- Output format is WAV PCM 16-bit, 44.1 kHz and mono/stereo as declared.
 - Provider returns hashes for both output artifacts.
 
 ### Instrument Stem Separation

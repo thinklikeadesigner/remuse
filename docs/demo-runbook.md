@@ -28,7 +28,7 @@ Run the Phase 2 MVSEP-backed job backend:
 REMUSE_PROVIDER=mvsep MVSEP_API_TOKEN=<token> npm run server:mock
 ```
 
-Submit a canonical WAV PCM 24-bit, 44.1 kHz file:
+Submit a WAV PCM 16-bit or 24-bit, 44.1 kHz file:
 
 ```bash
 curl -X POST http://localhost:3000/v1/jobs \

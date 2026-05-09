@@ -8,6 +8,7 @@ import type {
   PipelineStepName,
   ProviderContext
 } from "./types.ts";
+import { isSupportedWorkflowWav } from "./formats.ts";
 
 function nowIso(): string {
   return new Date().toISOString();
@@ -46,11 +47,11 @@ export async function runPipeline(
 
   await start("validate-input", "Checking input audio format.");
   const format = input.inputAudio.format;
-  if (format.container !== "WAV" || format.codec !== "PCM" || format.sampleRateHz !== 44100 || format.bitDepth !== 24) {
+  if (!isSupportedWorkflowWav(format)) {
     await emit({
       step: "validate-input",
       status: "failed",
-      message: "Input must be canonical WAV PCM 24-bit, 44.1 kHz.",
+      message: "Input must be WAV PCM 16-bit or 24-bit, 44.1 kHz.",
       at: nowIso()
     });
     throw new Error("Unsupported input format.");

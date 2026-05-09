@@ -1,6 +1,6 @@
 # Remuse
 
-Remuse is an audio-to-MIDI/OpenDAW application scaffold. The target workflow accepts canonical WAV PCM 24-bit, 44.1 kHz audio, separates reverb and instrument stems through external providers, identifies instruments, converts stems to MIDI, builds an OpenDAW session, assigns sample libraries, and returns a stereo WAV PCM 16-bit, 44.1 kHz bounce.
+Remuse is an audio-to-MIDI/OpenDAW application scaffold. The target workflow accepts WAV PCM 16-bit or 24-bit, 44.1 kHz audio, separates reverb and instrument stems through external providers, identifies instruments, converts stems to MIDI, builds an OpenDAW session, assigns sample libraries, and returns a stereo WAV PCM 16-bit, 44.1 kHz bounce.
 
 The repo also contains high-intensity multi-agent sprint configuration. It is built around one orchestration agent, parallel development and testing agents, dedicated review agents, and a separate Git worktree for every agent.
 
@@ -51,7 +51,7 @@ Run the mock job backend:
 npm run server:mock
 ```
 
-The backend stores local runtime artifacts under `var/remuse/` by default. Submit a canonical WAV PCM 24-bit, 44.1 kHz file with `POST /v1/jobs`, then poll `GET /v1/jobs/<job-id>` and fetch the completed result with `GET /v1/jobs/<job-id>/result`.
+The backend stores local runtime artifacts under `var/remuse/` by default. Submit a WAV PCM 16-bit or 24-bit, 44.1 kHz file with `POST /v1/jobs`, then poll `GET /v1/jobs/<job-id>` and fetch the completed result with `GET /v1/jobs/<job-id>/result`.
 
 Type-check and test:
 

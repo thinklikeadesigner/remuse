@@ -19,7 +19,7 @@ REMUSE_PROVIDER=mvsep MVSEP_API_TOKEN=<token> npm run server:mock
 Optional MVSEP settings:
 
 - `MVSEP_BASE_URL`: defaults to `https://mvsep.com`.
-- `MVSEP_OUTPUT_FORMAT`: currently must be `1`, MVSEP WAV 16-bit output.
+- `MVSEP_OUTPUT_FORMAT`: must be `1`, MVSEP WAV 16-bit output.
 - `MVSEP_POLL_INTERVAL_MS`: defaults to `10000`.
 - `MVSEP_MAX_POLL_ATTEMPTS`: defaults to `120`.
 
@@ -47,6 +47,6 @@ Each persisted artifact records:
 
 ## Current Constraints
 
-MVSEP supports higher-quality FLAC 24-bit output, but this adapter currently requests WAV 16-bit because Remuse does not yet include a local transcode/normalization step. A later audio-normalization pass should add FFmpeg or equivalent processing so MVSEP FLAC 24-bit can be converted back to canonical WAV PCM 24-bit, 44.1 kHz before downstream use.
+MVSEP WAV 16-bit output is the intended working format for this application, so no local 24-bit transcoding step is required.
 
 MVSEP's de-reverb API must be live-tested to confirm whether it returns a separate reverb-only artifact. If it returns only dry/no-reverb audio, Remuse still needs a residual-rendering implementation for `reverbOnly`.

@@ -97,9 +97,13 @@ export function parseWavFormat(buffer: Buffer): WavParseResult {
 export function assertCanonicalInternalWav(buffer: Buffer): WavParseResult {
   const parsed = parseWavFormat(buffer);
 
-  if (parsed.format.bitDepth !== 24) {
-    throw new Error(`Canonical input must be 24-bit PCM WAV; found ${parsed.format.bitDepth}-bit.`);
+  if (parsed.format.bitDepth !== 16) {
+    throw new Error(`Canonical audio must be 16-bit PCM WAV; found ${parsed.format.bitDepth}-bit.`);
   }
 
   return parsed;
+}
+
+export function assertSupportedWorkflowWav(buffer: Buffer): WavParseResult {
+  return parseWavFormat(buffer);
 }

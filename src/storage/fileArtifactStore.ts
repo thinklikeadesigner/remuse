@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { createHash } from "node:crypto";
 import type { AudioArtifact } from "../pipeline/types.ts";
-import { assertCanonicalInternalWav, parseWavFormat } from "../audio/wav.ts";
+import { assertSupportedWorkflowWav, parseWavFormat } from "../audio/wav.ts";
 
 export type FileArtifactStoreOptions = {
   rootDir: string;
@@ -48,7 +48,7 @@ export class FileArtifactStore {
   }
 
   async saveInputWav(jobId: string, filename: string, bytes: Buffer): Promise<StoredInputArtifact> {
-    const parsed = assertCanonicalInternalWav(bytes);
+    const parsed = assertSupportedWorkflowWav(bytes);
     const artifactDir = join(this.rootDir, jobId, "input");
     await mkdir(artifactDir, { recursive: true });
 

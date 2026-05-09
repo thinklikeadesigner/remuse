@@ -1,6 +1,6 @@
 # Audio-to-MIDI OpenDAW Pipeline Architecture
 
-This application converts canonical WAV PCM 24-bit, 44.1 kHz audio into a new WAV PCM 16-bit, 44.1 kHz stereo bounce generated from MIDI tracks inside an OpenDAW session.
+This application converts WAV PCM 16-bit or 24-bit, 44.1 kHz audio into a new WAV PCM 16-bit, 44.1 kHz stereo bounce generated from MIDI tracks inside an OpenDAW session.
 
 ## First Scaffold Goal
 
@@ -9,7 +9,7 @@ The initial implementation is intentionally provider-neutral. Every external ser
 ## Pipeline
 
 ```text
-input WAV PCM 24-bit / 44.1 kHz
+input WAV PCM 16-bit or 24-bit / 44.1 kHz
 -> validate format
 -> de-reverb split
 -> dry-only instrument stem separation

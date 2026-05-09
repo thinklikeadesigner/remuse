@@ -6,8 +6,8 @@ info:
     Provider-neutral HTTP contract for de-reverb separation, instrument stem separation,
     AI instrument identification, and stem-to-MIDI conversion. Concrete vendor adapters
     may translate to vendor-specific APIs, but must expose this shape to the workflow layer.
-    Remuse uses WAV PCM 24-bit / 44.1 kHz as its canonical provider interchange format
-    and WAV PCM 16-bit / 44.1 kHz as the default user-facing final output.
+    Remuse uses WAV PCM 16-bit / 44.1 kHz as its working provider interchange
+    and final output format, while accepting 24-bit WAV inputs when available.
 servers:
   - url: https://provider.example.com
     description: Placeholder provider base URL.

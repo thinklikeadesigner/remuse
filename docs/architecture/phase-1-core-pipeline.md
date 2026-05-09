@@ -5,7 +5,7 @@ Phase 1 adds a job-based backend around the existing provider-adapter pipeline. 
 ## Runtime Shape
 
 - `POST /v1/jobs` accepts a raw WAV upload using `audio/wav`, `audio/x-wav`, or `application/octet-stream`.
-- The upload is validated as PCM WAV at 44.1 kHz with 24-bit depth before a job record is created.
+- The upload is validated as PCM WAV at 44.1 kHz with 16-bit or 24-bit depth before a job record is created.
 - Artifacts are stored under `var/remuse/artifacts/<job-id>/` by default.
 - Job state is stored as JSON under `var/remuse/jobs/<job-id>.json` by default.
 - The job runner updates status from `queued` to `running`, appends pipeline step events, and then marks the job `succeeded` or `failed`.
