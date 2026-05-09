@@ -1,22 +1,10 @@
 import type { AudioArtifact, AudioFormat, ArtifactKind, OpenDawSessionArtifact } from "../../pipeline/types.ts";
+import { CANONICAL_INTERNAL_WAV_FORMAT, FINAL_OUTPUT_WAV_FORMAT } from "../../pipeline/formats.ts";
 
 let counter = 0;
 
-export const canonicalInternalWavFormat: AudioFormat = {
-  container: "WAV",
-  codec: "PCM",
-  sampleRateHz: 44100,
-  bitDepth: 24,
-  channels: 2
-};
-
-export const finalOutputWavFormat: AudioFormat = {
-  container: "WAV",
-  codec: "PCM",
-  sampleRateHz: 44100,
-  bitDepth: 16,
-  channels: 2
-};
+export const canonicalInternalWavFormat: AudioFormat = CANONICAL_INTERNAL_WAV_FORMAT;
+export const finalOutputWavFormat: AudioFormat = FINAL_OUTPUT_WAV_FORMAT;
 
 export function nextId(prefix: string): string {
   counter += 1;

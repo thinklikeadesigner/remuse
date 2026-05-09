@@ -7,6 +7,9 @@ The repo also contains high-intensity multi-agent sprint configuration. It is bu
 ## Layout
 
 - `src/pipeline/` - shared TypeScript interfaces, naming helpers, and workflow runner.
+- `src/server/` - mock-backed job API for WAV uploads, job state, and pipeline results.
+- `src/jobs/` - file-backed job records and the pipeline job runner.
+- `src/storage/` - file-backed artifact storage.
 - `src/providers/mock/` - deterministic mock providers for the full audio-to-MIDI/OpenDAW flow.
 - `src/demo/runMockPipeline.ts` - smoke demo for the mock pipeline.
 - `tests/unit/` - initial unit test scaffold.
@@ -42,6 +45,14 @@ Run the mock pipeline:
 npm run demo:mock
 ```
 
+Run the mock job backend:
+
+```bash
+npm run server:mock
+```
+
+The backend stores local runtime artifacts under `var/remuse/` by default. Submit a canonical WAV PCM 24-bit, 44.1 kHz file with `POST /v1/jobs`, then poll `GET /v1/jobs/<job-id>` and fetch the completed result with `GET /v1/jobs/<job-id>/result`.
+
 Type-check and test:
 
 ```bash
@@ -56,6 +67,7 @@ Phase 0 artifacts:
 - [OpenDAW integration spike](docs/architecture/opendaw-integration-spike.md)
 - [External provider contracts](docs/architecture/phase-0-provider-contracts.md)
 - [OpenAPI contract](contracts/external-audio-services.openapi.yaml)
+- [Phase 1 core pipeline skeleton](docs/architecture/phase-1-core-pipeline.md)
 
 ## Audio Application Agents
 

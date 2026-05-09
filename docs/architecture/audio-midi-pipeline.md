@@ -25,6 +25,9 @@ input WAV PCM 24-bit / 44.1 kHz
 - `src/pipeline/types.ts` contains shared contracts for artifacts, provider interfaces, job input, job result, and OpenDAW track plans.
 - `src/pipeline/workflow.ts` runs the current sequential pipeline.
 - `src/pipeline/naming.ts` normalizes instrument labels and MIDI filenames.
+- `src/server/http.ts` exposes the Phase 1 job API for upload, status, and result retrieval.
+- `src/jobs/**` persists job state and runs the pipeline from queued jobs.
+- `src/storage/**` persists validated input artifacts with checksum metadata.
 - `src/providers/mock/**` implements deterministic mock providers for local development and test scaffolding.
 - Real providers should match the mock providers' behavior at the interface boundary.
 

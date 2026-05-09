@@ -134,7 +134,7 @@ export type PipelineJobResult = {
 export type ProviderContext = {
   jobId: string;
   traceId: string;
-  emit: (event: PipelineStepEvent) => void;
+  emit: (event: PipelineStepEvent) => void | Promise<void>;
 };
 
 export interface DereverbProvider {
