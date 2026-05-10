@@ -461,6 +461,28 @@
         transition: width 180ms ease;
       }
 
+      .job-details {
+        border-top: 1px solid rgba(255, 255, 255, 0.12);
+        padding-top: 12px;
+      }
+
+      .job-details summary {
+        cursor: pointer;
+        color: var(--text);
+        font-size: 13px;
+        font-weight: 720;
+        list-style-position: inside;
+      }
+
+      .job-details summary::marker {
+        color: var(--gold);
+        font-size: 12px;
+      }
+
+      .job-details[open] summary {
+        margin-bottom: 12px;
+      }
+
       .job-steps {
         list-style: none;
         display: grid;
@@ -791,12 +813,15 @@
           <div class="job-progress-track" aria-hidden="true">
             <div class="job-progress-fill" id="jobProgressFill"></div>
           </div>
-          <ol class="job-steps" id="jobSteps" aria-label="Workflow steps"></ol>
           <div class="job-links">
             <a id="reviewLink" href="#" hidden>Open job progress</a>
             <a id="resultLink" href="#" hidden>Open result JSON</a>
           </div>
-          <div class="diagnostic-tracks" id="diagnosticTracks" hidden></div>
+          <details class="job-details" id="jobDetails">
+            <summary>Details</summary>
+            <ol class="job-steps" id="jobSteps" aria-label="Workflow steps"></ol>
+            <div class="diagnostic-tracks" id="diagnosticTracks" hidden></div>
+          </details>
         </section>
 
         <section class="metrics" aria-label="Demo metrics">
@@ -891,6 +916,7 @@
       const jobMessage = document.querySelector("#jobMessage");
       const jobPercent = document.querySelector("#jobPercent");
       const jobProgressFill = document.querySelector("#jobProgressFill");
+      const jobDetails = document.querySelector("#jobDetails");
       const jobSteps = document.querySelector("#jobSteps");
       const reviewLink = document.querySelector("#reviewLink");
       const resultLink = document.querySelector("#resultLink");
@@ -902,7 +928,6 @@
 
       const workflowSteps = [
         "validate-input",
-        "de-reverb",
         "instrument-stem-separation",
         "instrument-label-normalization",
         "manual-instrument-review",
@@ -912,13 +937,24 @@
         "opendaw-bounce"
       ];
 
+      const workflowStepLabels = {
+        "validate-input": "Validate Input",
+        "instrument-stem-separation": "Stem Separation",
+        "instrument-label-normalization": "Labeling",
+        "manual-instrument-review": "Manual Review",
+        "midi-conversion": "MIDI Conversion",
+        "opendaw-session-create": "Create ReMuse Session",
+        "opendaw-midi-import": "MIDI Merge",
+        "opendaw-bounce": "Output ReMused File"
+      };
+
       let currentJobId = null;
       let pollTimer = null;
       let beforeObjectUrl = null;
       let afterObjectUrl = null;
 
       function titleCaseStep(step) {
-        return step
+        return workflowStepLabels[step] || step
           .split("-")
           .map((part) => part.slice(0, 1).toUpperCase() + part.slice(1))
           .join(" ");
@@ -937,7 +973,7 @@
           const status = latestByStep.get(step)?.status;
           return status === "succeeded" || status === "skipped";
         }).length;
-        const latestEvent = (record.events || []).at(-1);
+        const latestEvent = [...(record.events || [])].reverse().find((event) => workflowSteps.includes(event.step));
         let units = completedSteps;
 
         if (record.status === "queued") {
@@ -969,7 +1005,9 @@
       function renderJobSteps(record) {
         const latestByStep = new Map();
         for (const event of record?.events || []) {
-          latestByStep.set(event.step, event);
+          if (workflowSteps.includes(event.step)) {
+            latestByStep.set(event.step, event);
+          }
         }
 
         jobSteps.innerHTML = workflowSteps
@@ -1043,7 +1081,7 @@
       function renderJobRecord(record) {
         renderJobSteps(record);
         const percent = progressForJob(record);
-        const latestEvent = (record.events || []).at(-1);
+        const latestEvent = [...(record.events || [])].reverse().find((event) => workflowSteps.includes(event.step));
         const latestMessage = latestEvent?.message || `Job is ${record.status}.`;
         const latestStep = latestEvent ? titleCaseStep(latestEvent.step) : "Queued";
         const reviewUrl = record.reviewUrl || (record.id ? `/review/${record.id}` : "#");
@@ -1111,6 +1149,7 @@
 
         clearPollTimer();
         currentJobId = null;
+        jobDetails.open = false;
         reviewLink.hidden = true;
         resultLink.hidden = true;
         renderJobSteps({ events: [] });

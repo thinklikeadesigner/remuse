@@ -44,7 +44,6 @@ const defaultMaxUploadBytes = 500 * 1024 * 1024;
 const defaultPublicBaseUrl = "http://localhost:3000";
 const progressSteps: readonly PipelineStepName[] = [
   "validate-input",
-  "de-reverb",
   "instrument-stem-separation",
   "instrument-label-normalization",
   "manual-instrument-review",
@@ -53,6 +52,16 @@ const progressSteps: readonly PipelineStepName[] = [
   "opendaw-midi-import",
   "opendaw-bounce"
 ];
+const progressStepLabels: Partial<Record<PipelineStepName, string>> = {
+  "validate-input": "Validate Input",
+  "instrument-stem-separation": "Stem Separation",
+  "instrument-label-normalization": "Labeling",
+  "manual-instrument-review": "Manual Review",
+  "midi-conversion": "MIDI Conversion",
+  "opendaw-session-create": "Create ReMuse Session",
+  "opendaw-midi-import": "MIDI Merge",
+  "opendaw-bounce": "Output ReMused File"
+};
 
 export function openUrlWithDefaultBrowser(url: string): Promise<void> {
   const command =
@@ -290,7 +299,7 @@ function lastEvents(record: PipelineJobRecord): string {
 }
 
 function displayStepName(step: PipelineStepName): string {
-  return step
+  return progressStepLabels[step] ?? step
     .split("-")
     .map((part) => part.slice(0, 1).toUpperCase() + part.slice(1))
     .join(" ");
@@ -310,7 +319,7 @@ function progressForRecord(record: PipelineJobRecord): { percent: number; step: 
     const status = latestByStep.get(step)?.status;
     return status === "succeeded" || status === "skipped";
   }).length;
-  const latestEvent = record.events.at(-1);
+  const latestEvent = [...record.events].reverse().find((event) => progressSteps.includes(event.step));
   let units = completedSteps;
 
   if (record.status === "queued") {
