@@ -10,6 +10,8 @@ const execFileAsync = promisify(execFile);
 export type FluidSynthTrackInput = {
   trackIndex: number;
   trackName: string;
+  midiFilename: string;
+  normalizedInstrument: string;
   midiUri: string;
   sampleLibrary: SampleLibraryAssignment;
 };
@@ -19,11 +21,23 @@ export type FluidSynthRenderOptions = {
   soundfontPath: string;
   workingDir: string;
   timeoutMs?: number;
+  renderTrackDiagnostics?: boolean;
+};
+
+export type FluidSynthTrackRender = {
+  trackIndex: number;
+  trackName: string;
+  midiFilename: string;
+  normalizedInstrument: string;
+  sampleLibraryKey: string;
+  bytes: Buffer;
+  metadata: Record<string, string | number | boolean>;
 };
 
 export type FluidSynthRenderResult = {
   bytes: Buffer;
   metadata: Record<string, string | number | boolean>;
+  trackRenders?: FluidSynthTrackRender[];
 };
 
 type ParsedMidiEvent = {
@@ -211,6 +225,23 @@ function channelForTrack(track: FluidSynthTrackInput, melodicIndex: number): num
   return melodicChannels[melodicIndex % melodicChannels.length] ?? 0;
 }
 
+function bankSelectEvents(track: FluidSynthTrackInput, channel: number): ParsedMidiEvent[] {
+  const bank = track.sampleLibrary.soundfontBank;
+  if (bank === undefined) {
+    return [];
+  }
+
+  if (bank === 128 && track.sampleLibrary.isPercussion === true) {
+    return [];
+  }
+
+  if (!Number.isInteger(bank) || bank < 0 || bank > 127) {
+    throw new Error(`MIDI bank select cannot encode SoundFont bank ${bank} for ${track.trackName}.`);
+  }
+
+  return [{ tick: 0, bytes: [0xb0 | channel, 0x00, bank] }];
+}
+
 function rewriteChannelEvent(bytes: number[], channel: number): number[] | undefined {
   const status = bytes[0];
   if (status === undefined) {
@@ -259,6 +290,11 @@ function encodeStandardMidiFile(division: number, tracks: Buffer[]): Buffer {
   return Buffer.from(bytes);
 }
 
+function safeFilenameFragment(value: string): string {
+  const normalized = value.trim().toLowerCase().replace(/[^a-z0-9._-]+/g, "-").replace(/^-+|-+$/g, "");
+  return normalized.length > 0 ? normalized : "track";
+}
+
 async function midiPathFromUri(uri: string): Promise<string> {
   const url = new URL(uri);
   if (url.protocol !== "file:") {
@@ -297,6 +333,7 @@ async function buildMergedMidi(tracks: FluidSynthTrackInput[]): Promise<Buffer> 
     }
 
     const events: ParsedMidiEvent[] = [{ tick: 0, bytes: trackNameEvent(track.trackName) }];
+    events.push(...bankSelectEvents(track, channel));
     const program = track.sampleLibrary.midiProgram;
     if (program !== undefined) {
       events.push({
@@ -321,6 +358,38 @@ async function buildMergedMidi(tracks: FluidSynthTrackInput[]): Promise<Buffer> 
   return encodeStandardMidiFile(targetDivision, outputTracks);
 }
 
+async function renderMidiFileWithFluidSynth(input: {
+  command: string;
+  soundfontPath: string;
+  midiPath: string;
+  outputWavPath: string;
+  timeoutMs: number;
+}): Promise<void> {
+  const args = [
+    "-ni",
+    "-F",
+    input.outputWavPath,
+    "-T",
+    "wav",
+    "-O",
+    "s16",
+    "-r",
+    "44100",
+    input.soundfontPath,
+    input.midiPath
+  ];
+
+  try {
+    await execFileAsync(input.command, args, {
+      timeout: input.timeoutMs,
+      maxBuffer: 1024 * 1024
+    });
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : String(error);
+    throw new Error(`FluidSynth render failed: ${reason}`);
+  }
+}
+
 export async function renderFluidSynthBounce(input: {
   sessionId: string;
   tracks: FluidSynthTrackInput[];
@@ -335,28 +404,51 @@ export async function renderFluidSynthBounce(input: {
   await writeFile(mergedMidiPath, mergedMidi);
 
   const command = input.options.command ?? defaultCommand;
-  const args = [
-    "-ni",
-    "-F",
+  const timeoutMs = input.options.timeoutMs ?? defaultTimeoutMs;
+  await renderMidiFileWithFluidSynth({
+    command,
+    soundfontPath: input.options.soundfontPath,
+    midiPath: mergedMidiPath,
     outputWavPath,
-    "-T",
-    "wav",
-    "-O",
-    "s16",
-    "-r",
-    "44100",
-    input.options.soundfontPath,
-    mergedMidiPath
-  ];
+    timeoutMs
+  });
 
-  try {
-    await execFileAsync(command, args, {
-      timeout: input.options.timeoutMs ?? defaultTimeoutMs,
-      maxBuffer: 1024 * 1024
-    });
-  } catch (error) {
-    const reason = error instanceof Error ? error.message : String(error);
-    throw new Error(`FluidSynth render failed: ${reason}`);
+  const trackRenders: FluidSynthTrackRender[] = [];
+  if (input.options.renderTrackDiagnostics === true) {
+    for (const track of input.tracks) {
+      const trackNumber = String(track.trackIndex + 1).padStart(2, "0");
+      const trackSlug = safeFilenameFragment(track.normalizedInstrument || track.trackName);
+      const trackMidiPath = join(input.options.workingDir, `${input.sessionId}.track-${trackNumber}-${trackSlug}.mid`);
+      const trackWavPath = join(input.options.workingDir, `${input.sessionId}.track-${trackNumber}-${trackSlug}.wav`);
+      await writeFile(trackMidiPath, await buildMergedMidi([track]));
+      await renderMidiFileWithFluidSynth({
+        command,
+        soundfontPath: input.options.soundfontPath,
+        midiPath: trackMidiPath,
+        outputWavPath: trackWavPath,
+        timeoutMs
+      });
+      trackRenders.push({
+        trackIndex: track.trackIndex,
+        trackName: track.trackName,
+        midiFilename: track.midiFilename,
+        normalizedInstrument: track.normalizedInstrument,
+        sampleLibraryKey: track.sampleLibrary.key,
+        bytes: await readFile(trackWavPath),
+        metadata: {
+          renderer: "libfluidsynth",
+          renderMode: "fluidsynth-track-diagnostic",
+          fluidsynthCommand: command,
+          soundfontFilename: basename(input.options.soundfontPath),
+          mergedMidiFilename: basename(trackMidiPath),
+          sourceMidiFilename: track.midiFilename,
+          trackIndex: track.trackIndex,
+          trackName: track.trackName,
+          normalizedInstrument: track.normalizedInstrument,
+          sampleLibraryKey: track.sampleLibrary.key
+        }
+      });
+    }
   }
 
   const bytes = await readFile(outputWavPath);
@@ -368,7 +460,9 @@ export async function renderFluidSynthBounce(input: {
       fluidsynthCommand: command,
       soundfontFilename: basename(input.options.soundfontPath),
       mergedMidiFilename: basename(mergedMidiPath),
-      trackCount: input.tracks.length
-    }
+      trackCount: input.tracks.length,
+      diagnosticTrackRenderCount: trackRenders.length
+    },
+    ...(trackRenders.length === 0 ? {} : { trackRenders })
   };
 }

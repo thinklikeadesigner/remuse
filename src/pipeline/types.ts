@@ -14,6 +14,7 @@ export type ArtifactKind =
   | "review-clip"
   | "midi"
   | "opendaw-session"
+  | "diagnostic-track-bounce"
   | "stereo-bounce";
 
 export type ArtifactBase = {
@@ -26,7 +27,14 @@ export type ArtifactBase = {
 };
 
 export type AudioArtifact = ArtifactBase & {
-  kind: "input-audio" | "dry-audio" | "reverb-audio" | "instrument-stem" | "review-clip" | "stereo-bounce";
+  kind:
+    | "input-audio"
+    | "dry-audio"
+    | "reverb-audio"
+    | "instrument-stem"
+    | "review-clip"
+    | "diagnostic-track-bounce"
+    | "stereo-bounce";
   format: AudioFormat;
   durationSeconds?: number;
 };
@@ -106,6 +114,7 @@ export type SampleLibraryAssignment = {
   engine: "opendaw-soundfont" | "general-midi-fallback";
   midiProgram?: number;
   soundfontId?: string;
+  soundfontBank?: number;
   presetIndex?: number;
   presetName?: string;
   isPercussion?: boolean;
@@ -127,9 +136,21 @@ export type OpenDawSessionResult = {
   tracks: OpenDawTrackPlan[];
 };
 
+export type DiagnosticTrackBounce = {
+  trackIndex: number;
+  trackName: string;
+  midiArtifactId: string;
+  midiFilename: string;
+  normalizedInstrument: string;
+  sampleLibraryKey: string;
+  sampleLibrary: SampleLibraryAssignment;
+  bounce: AudioArtifact & { kind: "diagnostic-track-bounce" };
+};
+
 export type BounceResult = {
   bounce: AudioArtifact & { kind: "stereo-bounce" };
   session: OpenDawSessionArtifact;
+  diagnosticTrackBounces?: DiagnosticTrackBounce[];
 };
 
 export type PipelineStepName =

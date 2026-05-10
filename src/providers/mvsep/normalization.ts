@@ -22,6 +22,8 @@ const stemOrder = [
   "guitar",
   "piano",
   "strings",
+  "brass",
+  "woodwinds",
   "wind",
   "instrum",
   "other"

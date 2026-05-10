@@ -35,7 +35,8 @@
       }
 
       button,
-      input {
+      input,
+      select {
         font: inherit;
       }
 
@@ -120,6 +121,7 @@
       .video-panel,
       .control-panel,
       .audio-panel,
+      .job-panel,
       .metric {
         background: rgba(20, 20, 20, 0.92);
         border: 1px solid rgba(255, 255, 255, 0.1);
@@ -391,6 +393,17 @@
         cursor: pointer;
       }
 
+      .file-label.is-dragover,
+      .file-label.is-uploading {
+        border-color: rgba(216, 174, 95, 0.9);
+        color: var(--text);
+        background: rgba(216, 174, 95, 0.1);
+      }
+
+      .file-label.is-uploading {
+        cursor: progress;
+      }
+
       .file-label input {
         display: none;
       }
@@ -398,6 +411,103 @@
       audio {
         width: 100%;
         height: 40px;
+      }
+
+      .job-panel {
+        margin-top: 22px;
+        padding: 20px;
+        display: grid;
+        gap: 14px;
+      }
+
+      .job-panel-head {
+        display: flex;
+        justify-content: space-between;
+        gap: 20px;
+        align-items: start;
+      }
+
+      .job-panel h2,
+      .job-panel p {
+        margin: 0;
+      }
+
+      .job-panel h2 {
+        font-size: 18px;
+      }
+
+      .job-panel p {
+        margin-top: 5px;
+        color: var(--muted);
+        line-height: 1.4;
+      }
+
+      .job-percent {
+        color: var(--gold);
+        font-weight: 780;
+        font-variant-numeric: tabular-nums;
+      }
+
+      .job-progress-track {
+        height: 10px;
+        border: 1px solid rgba(255, 255, 255, 0.16);
+        background: #101010;
+      }
+
+      .job-progress-fill {
+        width: 0%;
+        height: 100%;
+        background: linear-gradient(90deg, var(--red), var(--gold), var(--green));
+        transition: width 180ms ease;
+      }
+
+      .job-links {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 14px;
+        min-height: 22px;
+      }
+
+      .job-links a {
+        color: var(--gold);
+        font-size: 13px;
+        text-decoration-thickness: 1px;
+        text-underline-offset: 4px;
+      }
+
+      .job-links a[hidden] {
+        display: none;
+      }
+
+      .diagnostic-tracks {
+        display: grid;
+        gap: 12px;
+      }
+
+      .diagnostic-tracks[hidden] {
+        display: none;
+      }
+
+      .diagnostic-track {
+        display: grid;
+        grid-template-columns: minmax(160px, 240px) minmax(0, 1fr);
+        gap: 14px;
+        align-items: center;
+        padding: 12px;
+        background: #101010;
+        border: 1px solid var(--line);
+      }
+
+      .diagnostic-track strong {
+        display: block;
+        font-size: 13px;
+      }
+
+      .diagnostic-track span {
+        display: block;
+        margin-top: 3px;
+        color: var(--muted);
+        font-size: 12px;
       }
 
       .metrics {
@@ -473,6 +583,14 @@
 
         .metrics {
           grid-template-columns: 1fr 1fr;
+        }
+
+        .job-panel-head {
+          display: grid;
+        }
+
+        .diagnostic-track {
+          grid-template-columns: 1fr;
         }
       }
     </style>
@@ -584,9 +702,9 @@
               <h2>Before</h2>
               <span class="badge bad">damaged</span>
             </div>
-            <label class="file-label">
-              <input id="beforeFile" type="file" accept="audio/*" />
-              <span id="beforeLabel">Drop in the damaged recording for the live pitch</span>
+            <label class="file-label" id="beforeDropZone">
+              <input id="beforeFile" type="file" accept=".wav,audio/wav,audio/x-wav" />
+              <span id="beforeLabel">Drop WAV source to start ReMuse</span>
             </label>
             <audio id="beforeAudio" controls></audio>
           </div>
@@ -598,10 +716,28 @@
             </div>
             <label class="file-label">
               <input id="afterFile" type="file" accept="audio/*" />
-              <span id="afterLabel">Drop in the restored ReMuse output</span>
+              <span id="afterLabel">Final ReMuse output appears here</span>
             </label>
             <audio id="afterAudio" controls></audio>
           </div>
+        </section>
+
+        <section class="job-panel" aria-label="ReMuse job status" aria-live="polite">
+          <div class="job-panel-head">
+            <div>
+              <h2 id="jobStatus">Ready</h2>
+              <p id="jobMessage">Waiting for source audio.</p>
+            </div>
+            <span class="job-percent" id="jobPercent">0%</span>
+          </div>
+          <div class="job-progress-track" aria-hidden="true">
+            <div class="job-progress-fill" id="jobProgressFill"></div>
+          </div>
+          <div class="job-links">
+            <a id="reviewLink" href="#" hidden>Open job progress</a>
+            <a id="resultLink" href="#" hidden>Open result JSON</a>
+          </div>
+          <div class="diagnostic-tracks" id="diagnosticTracks" hidden></div>
         </section>
 
         <section class="metrics" aria-label="Demo metrics">
@@ -692,6 +828,287 @@
       video.addEventListener("pause", updateUi);
       video.addEventListener("ended", updateUi);
 
+      const jobStatus = document.querySelector("#jobStatus");
+      const jobMessage = document.querySelector("#jobMessage");
+      const jobPercent = document.querySelector("#jobPercent");
+      const jobProgressFill = document.querySelector("#jobProgressFill");
+      const reviewLink = document.querySelector("#reviewLink");
+      const resultLink = document.querySelector("#resultLink");
+      const diagnosticTracks = document.querySelector("#diagnosticTracks");
+      const beforeAudio = document.querySelector("#beforeAudio");
+      const beforeLabel = document.querySelector("#beforeLabel");
+      const afterAudio = document.querySelector("#afterAudio");
+      const afterLabel = document.querySelector("#afterLabel");
+
+      const workflowSteps = [
+        "validate-input",
+        "de-reverb",
+        "instrument-stem-separation",
+        "instrument-label-normalization",
+        "manual-instrument-review",
+        "midi-conversion",
+        "opendaw-session-create",
+        "opendaw-midi-import",
+        "opendaw-bounce"
+      ];
+
+      let currentJobId = null;
+      let pollTimer = null;
+      let beforeObjectUrl = null;
+      let afterObjectUrl = null;
+
+      function titleCaseStep(step) {
+        return step
+          .split("-")
+          .map((part) => part.slice(0, 1).toUpperCase() + part.slice(1))
+          .join(" ");
+      }
+
+      function progressForJob(record) {
+        if (record.status === "succeeded") return 100;
+        if (record.status === "failed") return 100;
+
+        const latestByStep = new Map();
+        for (const event of record.events || []) {
+          latestByStep.set(event.step, event);
+        }
+
+        const completedSteps = workflowSteps.filter((step) => {
+          const status = latestByStep.get(step)?.status;
+          return status === "succeeded" || status === "skipped";
+        }).length;
+        const latestEvent = (record.events || []).at(-1);
+        let units = completedSteps;
+
+        if (record.status === "queued") {
+          units = Math.max(units, 0.1);
+        }
+
+        if (latestEvent) {
+          const latestStepIndex = workflowSteps.indexOf(latestEvent.step);
+          if (latestStepIndex >= 0 && (latestEvent.status === "running" || latestEvent.status === "awaiting-input")) {
+            units = Math.max(units, latestStepIndex + (latestEvent.status === "awaiting-input" ? 0.65 : 0.4));
+          }
+        }
+
+        return Math.max(2, Math.min(100, Math.round((units / workflowSteps.length) * 100)));
+      }
+
+      function setJobUi(title, message, percent) {
+        jobStatus.textContent = title;
+        jobMessage.textContent = message;
+        jobPercent.textContent = `${percent}%`;
+        jobProgressFill.style.width = `${percent}%`;
+      }
+
+      function clearPollTimer() {
+        if (pollTimer !== null) {
+          window.clearTimeout(pollTimer);
+          pollTimer = null;
+        }
+      }
+
+      function readServerError(response, fallback) {
+        return response
+          .clone()
+          .json()
+          .then((body) => body?.error?.message || fallback)
+          .catch(() => response.text().then((body) => body || fallback));
+      }
+
+      function safeHeaderFilename(filename) {
+        return filename.replace(/[^\x20-\x7e]+/g, "-").replace(/["\\\r\n]/g, "");
+      }
+
+      function escapeHtml(value) {
+        return String(value)
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/"/g, "&quot;")
+          .replace(/'/g, "&#39;");
+      }
+
+      function renderDiagnosticTracks(jobId, tracks) {
+        if (!Array.isArray(tracks) || tracks.length === 0) {
+          diagnosticTracks.hidden = true;
+          diagnosticTracks.replaceChildren();
+          return;
+        }
+
+        diagnosticTracks.hidden = false;
+        diagnosticTracks.innerHTML = tracks
+          .map((track) => {
+            const audioUrl =
+              track.audioUrl ||
+              `/v1/jobs/${encodeURIComponent(jobId)}/diagnostic-track-bounces/${encodeURIComponent(track.bounce.id)}`;
+            const trackNumber = String((track.trackIndex || 0) + 1).padStart(2, "0");
+            const title = track.trackName || `${trackNumber} ${track.normalizedInstrument || "track"}`;
+            const detail = `${track.normalizedInstrument || "unknown"} • ${track.sampleLibraryKey || "sample library"}`;
+            return `<div class="diagnostic-track">
+              <div>
+                <strong>${escapeHtml(title)}</strong>
+                <span>${escapeHtml(detail)}</span>
+              </div>
+              <audio controls preload="metadata" src="${escapeHtml(audioUrl)}"></audio>
+            </div>`;
+          })
+          .join("");
+      }
+
+      function renderJobRecord(record) {
+        const percent = progressForJob(record);
+        const latestEvent = (record.events || []).at(-1);
+        const latestMessage = latestEvent?.message || `Job is ${record.status}.`;
+        const latestStep = latestEvent ? titleCaseStep(latestEvent.step) : "Queued";
+        const reviewUrl = record.reviewUrl || (record.id ? `/review/${record.id}` : "#");
+        reviewLink.href = reviewUrl;
+        reviewLink.hidden = !record.id;
+        reviewLink.textContent = record.status === "awaiting-review" ? "Open manual review" : "Open job progress";
+        resultLink.href = record.id ? `/v1/jobs/${record.id}/result` : "#";
+        resultLink.hidden = record.status !== "succeeded";
+
+        if (record.status === "awaiting-review") {
+          const count = record.pendingInstrumentReviews?.length || 0;
+          setJobUi("Manual review", `Waiting for labels on ${count} stem${count === 1 ? "" : "s"}.`, percent);
+          return;
+        }
+
+        if (record.status === "succeeded") {
+          const bounce = record.result?.bounce?.bounce;
+          setJobUi("Complete", bounce ? `Created ${bounce.filename}.` : "ReMuse job completed.", 100);
+          renderDiagnosticTracks(record.id, record.diagnosticTrackBounces || record.result?.bounce?.diagnosticTrackBounces || []);
+          if (record.id && afterAudio.dataset.jobId !== record.id) {
+            if (afterObjectUrl !== null) {
+              URL.revokeObjectURL(afterObjectUrl);
+              afterObjectUrl = null;
+            }
+            afterAudio.src = `/v1/jobs/${encodeURIComponent(record.id)}/bounce`;
+            afterAudio.dataset.jobId = record.id;
+            afterLabel.textContent = bounce?.filename || "Final ReMuse output";
+          }
+          return;
+        }
+
+        if (record.status === "failed") {
+          setJobUi("Failed", record.error?.message || latestMessage, 100);
+          renderDiagnosticTracks(record.id, []);
+          return;
+        }
+
+        renderDiagnosticTracks(record.id, []);
+        setJobUi(latestStep, latestMessage, percent);
+      }
+
+      async function pollJobStatus(statusUrl) {
+        clearPollTimer();
+
+        try {
+          const response = await fetch(statusUrl, { headers: { accept: "application/json" } });
+          if (!response.ok) {
+            throw new Error(await readServerError(response, `Could not read job status (${response.status}).`));
+          }
+          const record = await response.json();
+          renderJobRecord(record);
+
+          if (record.status !== "succeeded" && record.status !== "failed") {
+            pollTimer = window.setTimeout(() => pollJobStatus(statusUrl), 2500);
+          }
+        } catch (error) {
+          const message = error instanceof Error ? error.message : String(error);
+          setJobUi("Status unavailable", message, 0);
+          pollTimer = window.setTimeout(() => pollJobStatus(statusUrl), 5000);
+        }
+      }
+
+      async function submitSourceFile(file, dropZone) {
+        if (!file) return;
+
+        clearPollTimer();
+        currentJobId = null;
+        reviewLink.hidden = true;
+        resultLink.hidden = true;
+        renderDiagnosticTracks(null, []);
+        afterAudio.removeAttribute("src");
+        afterAudio.removeAttribute("data-job-id");
+        afterAudio.load();
+        afterLabel.textContent = "Final ReMuse output appears here";
+
+        if (beforeObjectUrl !== null) {
+          URL.revokeObjectURL(beforeObjectUrl);
+        }
+        beforeObjectUrl = URL.createObjectURL(file);
+        beforeAudio.src = beforeObjectUrl;
+        beforeLabel.textContent = file.name;
+        dropZone.classList.add("is-uploading");
+        setJobUi("Uploading", `Submitting ${file.name}.`, 2);
+
+        try {
+          if (window.location.protocol === "file:") {
+            throw new Error("Open this page from the ReMuse server, then upload again.");
+          }
+
+          const uploadContentType = file.name.toLowerCase().endsWith(".wav")
+            ? "audio/wav"
+            : file.type || "application/octet-stream";
+          const response = await fetch("/v1/jobs", {
+            method: "POST",
+            headers: {
+              "content-type": uploadContentType,
+              "x-filename": safeHeaderFilename(file.name)
+            },
+            body: file
+          });
+
+          if (!response.ok) {
+            throw new Error(await readServerError(response, `Upload failed with status ${response.status}.`));
+          }
+
+          const created = await response.json();
+          currentJobId = created.jobId;
+          beforeLabel.textContent = `${file.name} submitted`;
+          reviewLink.href = created.reviewUrl;
+          reviewLink.hidden = false;
+          setJobUi("Queued", `Job ${created.jobId} is queued.`, 4);
+          await pollJobStatus(created.statusUrl);
+        } catch (error) {
+          const message = error instanceof Error ? error.message : String(error);
+          setJobUi("Upload failed", message, 0);
+        } finally {
+          dropZone.classList.remove("is-uploading");
+        }
+      }
+
+      function bindJobUpload() {
+        const input = document.querySelector("#beforeFile");
+        const dropZone = document.querySelector("#beforeDropZone");
+
+        input.addEventListener("change", () => {
+          const file = input.files && input.files[0];
+          void submitSourceFile(file, dropZone);
+        });
+
+        for (const eventName of ["dragenter", "dragover"]) {
+          dropZone.addEventListener(eventName, (event) => {
+            event.preventDefault();
+            dropZone.classList.add("is-dragover");
+          });
+        }
+
+        for (const eventName of ["dragleave", "drop"]) {
+          dropZone.addEventListener(eventName, () => {
+            dropZone.classList.remove("is-dragover");
+          });
+        }
+
+        dropZone.addEventListener("drop", (event) => {
+          event.preventDefault();
+          const file = event.dataTransfer?.files?.[0];
+          input.value = "";
+          void submitSourceFile(file, dropZone);
+        });
+      }
+
       function bindAudioPicker(inputId, audioId, labelId) {
         const input = document.querySelector(inputId);
         const audio = document.querySelector(audioId);
@@ -700,12 +1117,17 @@
         input.addEventListener("change", () => {
           const file = input.files && input.files[0];
           if (!file) return;
-          audio.src = URL.createObjectURL(file);
+          if (afterObjectUrl !== null) {
+            URL.revokeObjectURL(afterObjectUrl);
+          }
+          afterObjectUrl = URL.createObjectURL(file);
+          audio.src = afterObjectUrl;
+          audio.removeAttribute("data-job-id");
           label.textContent = file.name;
         });
       }
 
-      bindAudioPicker("#beforeFile", "#beforeAudio", "#beforeLabel");
+      bindJobUpload();
       bindAudioPicker("#afterFile", "#afterAudio", "#afterLabel");
       updateUi();
     </script>

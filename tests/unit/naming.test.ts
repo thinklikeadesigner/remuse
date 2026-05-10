@@ -22,6 +22,7 @@ test("inferInstrumentLabelFromName maps common names to sample libraries", () =>
   assert.equal(label.canonicalName, "guitar");
   assert.equal(label.family, "guitar");
   assert.equal(label.sampleLibraryKey, "clean-electric-guitar");
+  assert.equal(label.midiProgram, 28);
 });
 
 test("inferInstrumentLabel covers MVSEP Ensemble All-In stem inventory", () => {
@@ -38,7 +39,8 @@ test("inferInstrumentLabel covers MVSEP Ensemble All-In stem inventory", () => {
     ["guitar", "guitar"],
     ["piano", "piano"],
     ["strings", "strings"],
-    ["wind", "wind"],
+    ["wind", "woodwinds"],
+    ["brass", "brass"],
     ["instrum", "instrumental"],
     ["other", "other"]
   ] as const;
@@ -82,7 +84,7 @@ test("inferInstrumentLabel trusts provider labels before filename fallback", () 
 test("manual review options cover non-MVSEP instrument choices", () => {
   assert.deepEqual(
     humanInstrumentReviewOptions().map((option) => option.displayName),
-    ["Percussion", "Organ", "Synthesizer"]
+    ["Brass", "Percussion", "Organ", "Synthesizer"]
   );
 
   const label = labelForManualInstrumentSelection("Synthesizer", "stem-999");
@@ -90,6 +92,11 @@ test("manual review options cover non-MVSEP instrument choices", () => {
   assert.equal(label.family, "synth");
   assert.equal(label.method, "manual");
   assert.equal(label.sampleLibraryKey, "analog-synth");
+
+  const brass = labelForManualInstrumentSelection("Brass", "stem-998");
+  assert.equal(brass.canonicalName, "brass");
+  assert.equal(brass.midiProgram, 62);
+  assert.equal(brass.sampleLibraryKey, "studio-brass");
 });
 
 test("makeMidiFilename preserves job, order, and instrument label", () => {

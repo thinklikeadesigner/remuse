@@ -121,6 +121,14 @@ function sendAudio(response: ServerResponse, body: Buffer, filename: string): vo
   response.end(body);
 }
 
+async function readDemoPage(): Promise<string> {
+  return readFile(join(process.cwd(), "src", "demo", "demo.html"), "utf8");
+}
+
+function isDemoPageRoute(pathname: string): boolean {
+  return pathname === "/" || pathname === "/demo" || pathname === "/demo.html";
+}
+
 function singleHeader(value: string | string[] | undefined): string | undefined {
   if (Array.isArray(value)) {
     return value[0];
@@ -211,6 +219,15 @@ function routeReviewRequest(pathname: string, suffix = ""): { jobId: string; rev
   const pattern = new RegExp(`^/v1/jobs/([^/]+)/review-requests/([^/]+)${suffix}$`);
   const match = pathname.match(pattern);
   return match === null ? undefined : { jobId: match[1] ?? "", reviewRequestId: match[2] ?? "" };
+}
+
+function routeDiagnosticTrackBounces(pathname: string): string | undefined {
+  return pathname.match(/^\/v1\/jobs\/([^/]+)\/diagnostic-track-bounces$/)?.[1];
+}
+
+function routeDiagnosticTrackBounce(pathname: string): { jobId: string; diagnosticBounceId: string } | undefined {
+  const match = pathname.match(/^\/v1\/jobs\/([^/]+)\/diagnostic-track-bounces\/([^/]+)$/);
+  return match === null ? undefined : { jobId: match[1] ?? "", diagnosticBounceId: decodeURIComponent(match[2] ?? "") };
 }
 
 function routeReviewPage(pathname: string): string | undefined {
@@ -481,6 +498,15 @@ function publicReviewRequests(record: PipelineJobRecord): unknown[] {
   );
 }
 
+function publicDiagnosticTrackBounces(record: PipelineJobRecord): unknown[] {
+  return (
+    record.result?.bounce.diagnosticTrackBounces?.map((track) => ({
+      ...track,
+      audioUrl: `/v1/jobs/${record.id}/diagnostic-track-bounces/${encodeURIComponent(track.bounce.id)}`
+    })) ?? []
+  );
+}
+
 function jobSummary(record: PipelineJobRecord): unknown {
   return {
     id: record.id,
@@ -491,6 +517,7 @@ function jobSummary(record: PipelineJobRecord): unknown {
     inputArtifact: record.inputArtifact,
     events: record.events,
     pendingInstrumentReviews: publicReviewRequests(record),
+    diagnosticTrackBounces: publicDiagnosticTrackBounces(record),
     result: record.result,
     error: record.error
   };
@@ -564,6 +591,69 @@ export class JobApi {
     }
 
     return record.result;
+  }
+
+  async getJobBounce(jobId: string): Promise<{ bytes: Buffer; filename: string }> {
+    const record = await this.jobStore.get(jobId);
+    if (record === undefined) {
+      throw new HttpError(404, `Job ${jobId} was not found.`);
+    }
+
+    if (record.status !== "succeeded" || record.result === undefined) {
+      throw new HttpError(409, `Job ${jobId} is ${record.status}; bounce is not ready.`);
+    }
+
+    const bounce = record.result.bounce.bounce;
+    if (!bounce.uri.startsWith("file://")) {
+      throw new HttpError(409, `Job ${jobId} bounce is not file-backed and cannot be streamed.`);
+    }
+
+    return {
+      bytes: await readFile(fileURLToPath(bounce.uri)),
+      filename: bounce.filename
+    };
+  }
+
+  async getDiagnosticTrackBounces(jobId: string): Promise<unknown> {
+    const record = await this.jobStore.get(jobId);
+    if (record === undefined) {
+      throw new HttpError(404, `Job ${jobId} was not found.`);
+    }
+
+    if (record.status !== "succeeded" || record.result === undefined) {
+      throw new HttpError(409, `Job ${jobId} is ${record.status}; diagnostic track bounces are not ready.`);
+    }
+
+    return {
+      jobId,
+      tracks: publicDiagnosticTrackBounces(record)
+    };
+  }
+
+  async getDiagnosticTrackBounce(jobId: string, diagnosticBounceId: string): Promise<{ bytes: Buffer; filename: string }> {
+    const record = await this.jobStore.get(jobId);
+    if (record === undefined) {
+      throw new HttpError(404, `Job ${jobId} was not found.`);
+    }
+
+    if (record.status !== "succeeded" || record.result === undefined) {
+      throw new HttpError(409, `Job ${jobId} is ${record.status}; diagnostic track bounce is not ready.`);
+    }
+
+    const diagnostic = record.result.bounce.diagnosticTrackBounces?.find(
+      (track) => track.bounce.id === diagnosticBounceId || String(track.trackIndex + 1) === diagnosticBounceId
+    );
+    if (diagnostic === undefined) {
+      throw new HttpError(404, `Diagnostic track bounce ${diagnosticBounceId} was not found.`);
+    }
+    if (!diagnostic.bounce.uri.startsWith("file://")) {
+      throw new HttpError(409, `Diagnostic track bounce ${diagnosticBounceId} is not file-backed and cannot be streamed.`);
+    }
+
+    return {
+      bytes: await readFile(fileURLToPath(diagnostic.bounce.uri)),
+      filename: diagnostic.bounce.filename
+    };
   }
 
   async getInstrumentReviewRequests(jobId: string): Promise<unknown> {
@@ -755,6 +845,11 @@ export function createJobServer(options: JobServerOptions): JobServerApp {
         return;
       }
 
+      if (request.method === "GET" && isDemoPageRoute(url.pathname)) {
+        sendHtml(response, 200, await readDemoPage());
+        return;
+      }
+
       const reviewPageJobId = request.method === "GET" ? routeReviewPage(url.pathname) : undefined;
       if (reviewPageJobId !== undefined) {
         sendHtml(response, 200, await api.getInstrumentReviewPage(reviewPageJobId));
@@ -786,9 +881,33 @@ export function createJobServer(options: JobServerOptions): JobServerApp {
         return;
       }
 
+      const bounceJobId = request.method === "GET" ? routeJobId(url.pathname, "/bounce") : undefined;
+      if (bounceJobId !== undefined) {
+        const bounce = await api.getJobBounce(bounceJobId);
+        sendAudio(response, bounce.bytes, bounce.filename);
+        return;
+      }
+
       const resultJobId = request.method === "GET" ? routeJobId(url.pathname, "/result") : undefined;
       if (resultJobId !== undefined) {
         sendJson(response, 200, await api.getJobResult(resultJobId));
+        return;
+      }
+
+      const diagnosticTrackBounceRoute = request.method === "GET" ? routeDiagnosticTrackBounce(url.pathname) : undefined;
+      if (diagnosticTrackBounceRoute !== undefined) {
+        const diagnostic = await api.getDiagnosticTrackBounce(
+          diagnosticTrackBounceRoute.jobId,
+          diagnosticTrackBounceRoute.diagnosticBounceId
+        );
+        sendAudio(response, diagnostic.bytes, diagnostic.filename);
+        return;
+      }
+
+      const diagnosticTrackBouncesJobId =
+        request.method === "GET" ? routeDiagnosticTrackBounces(url.pathname) : undefined;
+      if (diagnosticTrackBouncesJobId !== undefined) {
+        sendJson(response, 200, await api.getDiagnosticTrackBounces(diagnosticTrackBouncesJobId));
         return;
       }
 

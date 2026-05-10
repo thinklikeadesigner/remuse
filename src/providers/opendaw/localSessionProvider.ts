@@ -4,6 +4,7 @@ import { fileURLToPath } from "node:url";
 import { renderSessionPreviewBounceWav } from "../../audio/sessionPreviewBounce.ts";
 import type {
   BounceResult,
+  DiagnosticTrackBounce,
   MidiArtifact,
   OpenDawProvider,
   OpenDawSessionArtifact,
@@ -13,7 +14,7 @@ import type {
   SampleLibraryAssignment
 } from "../../pipeline/types.ts";
 import type { FileArtifactStore } from "../../storage/fileArtifactStore.ts";
-import { renderFluidSynthBounce, type FluidSynthRenderOptions } from "./fluidSynthRenderer.ts";
+import { renderFluidSynthBounce, type FluidSynthRenderOptions, type FluidSynthRenderResult } from "./fluidSynthRenderer.ts";
 import { sampleLibraryForInstrument } from "./sampleLibraries.ts";
 
 export type LocalOpenDawSessionProviderOptions = {
@@ -94,6 +95,12 @@ function serializeSession(document: ReproducibleSessionDocument): Buffer {
 
 function trackNameFor(midiFile: MidiArtifact, index: number): string {
   return `${String(index + 1).padStart(2, "0")} ${midiFile.instrument.canonicalName}`;
+}
+
+function diagnosticTrackFilename(session: OpenDawSessionArtifact, track: SessionTrackDocument): string {
+  const sessionPrefix = session.filename.replace(/\.opendaw(?:\.json)?$/i, "");
+  const trackNumber = String(track.trackIndex + 1).padStart(2, "0");
+  return `${sessionPrefix}.track-${trackNumber}.${track.midi.normalizedInstrument}.diagnostic.wav`;
 }
 
 function sessionTrackDocument(sessionId: string, midiFile: MidiArtifact, index: number): SessionTrackDocument {
@@ -208,13 +215,15 @@ export class LocalOpenDawSessionProvider implements OpenDawProvider {
 
   async bounceSession(session: OpenDawSessionArtifact, context: ProviderContext): Promise<BounceResult> {
     const document = await readSessionDocument(session);
-    const renderResult =
+    const renderResult: FluidSynthRenderResult =
       this.renderBackend.mode === "fluidsynth"
         ? await renderFluidSynthBounce({
             sessionId: session.sessionId,
             tracks: document.tracks.map((track) => ({
               trackIndex: track.trackIndex,
               trackName: track.trackName,
+              midiFilename: track.midi.filename,
+              normalizedInstrument: track.midi.normalizedInstrument,
               midiUri: track.midi.uri,
               sampleLibrary: track.sampleLibrary
             })),
@@ -239,6 +248,41 @@ export class LocalOpenDawSessionProvider implements OpenDawProvider {
               headlessOpenDawRenderer: false
             }
           };
+    const diagnosticTrackBounces: DiagnosticTrackBounce[] = [];
+    for (const trackRender of renderResult.trackRenders ?? []) {
+      const track = document.tracks.find((item) => item.trackIndex === trackRender.trackIndex);
+      if (track === undefined) {
+        continue;
+      }
+
+      const stored = await this.artifactStore.saveAudioArtifact({
+        jobId: context.jobId,
+        stage: "diagnostic-track-bounces",
+        kind: "diagnostic-track-bounce",
+        filename: diagnosticTrackFilename(session, track),
+        bytes: trackRender.bytes,
+        sourceArtifactIds: [session.id, track.midi.artifactId],
+        metadata: {
+          provider: providerName,
+          diagnostic: true,
+          ...trackRender.metadata,
+          midiArtifactId: track.midi.artifactId,
+          midiFilename: track.midi.filename
+        }
+      });
+
+      diagnosticTrackBounces.push({
+        trackIndex: track.trackIndex,
+        trackName: track.trackName,
+        midiArtifactId: track.midi.artifactId,
+        midiFilename: track.midi.filename,
+        normalizedInstrument: track.midi.normalizedInstrument,
+        sampleLibraryKey: track.sampleLibrary.key,
+        sampleLibrary: track.sampleLibrary,
+        bounce: stored.artifact
+      });
+    }
+
     const filename = `${session.filename.replace(/\.opendaw(?:\.json)?$/i, "")}.bounce.wav`;
     const stored = await this.artifactStore.saveAudioArtifact({
       jobId: context.jobId,
@@ -251,13 +295,15 @@ export class LocalOpenDawSessionProvider implements OpenDawProvider {
         provider: providerName,
         ...renderResult.metadata,
         targetFormat: document.render.targetFormat,
-        headlessOpenDawRenderer: false
+        headlessOpenDawRenderer: false,
+        diagnosticTrackBounceCount: diagnosticTrackBounces.length
       }
     });
 
     return {
       bounce: stored.artifact,
-      session
+      session,
+      ...(diagnosticTrackBounces.length === 0 ? {} : { diagnosticTrackBounces })
     };
   }
 }

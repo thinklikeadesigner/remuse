@@ -44,8 +44,9 @@ const sampleLibraries: Record<string, SampleLibraryDefinition> = {
     engine: "opendaw-soundfont",
     midiProgram: 1,
     soundfontId,
+    soundfontBank: 128,
     presetIndex: 0,
-    presetName: "Standard Drum Kit",
+    presetName: "Standard",
     isPercussion: true
   },
   "electric-bass": {
@@ -53,19 +54,19 @@ const sampleLibraries: Record<string, SampleLibraryDefinition> = {
     displayName: "Electric Bass",
     family: "bass",
     engine: "opendaw-soundfont",
-    midiProgram: 33,
+    midiProgram: 34,
     soundfontId,
-    presetIndex: 32,
-    presetName: "Acoustic Bass"
+    presetIndex: 33,
+    presetName: "Finger Bass"
   },
   "clean-electric-guitar": {
     key: "clean-electric-guitar",
     displayName: "Clean Electric Guitar",
     family: "guitar",
     engine: "opendaw-soundfont",
-    midiProgram: 29,
+    midiProgram: 28,
     soundfontId,
-    presetIndex: 28,
+    presetIndex: 27,
     presetName: "Electric Guitar Clean"
   },
   "grand-piano": {
@@ -93,10 +94,20 @@ const sampleLibraries: Record<string, SampleLibraryDefinition> = {
     displayName: "Studio Strings",
     family: "strings",
     engine: "opendaw-soundfont",
-    midiProgram: 49,
+    midiProgram: 50,
     soundfontId,
-    presetIndex: 48,
-    presetName: "String Ensemble 1"
+    presetIndex: 49,
+    presetName: "Stereo Strings Slow"
+  },
+  "studio-brass": {
+    key: "studio-brass",
+    displayName: "Studio Brass",
+    family: "wind",
+    engine: "opendaw-soundfont",
+    midiProgram: 62,
+    soundfontId,
+    presetIndex: 61,
+    presetName: "Brass Section"
   },
   "studio-winds": {
     key: "studio-winds",
@@ -125,8 +136,9 @@ const sampleLibraries: Record<string, SampleLibraryDefinition> = {
     engine: "opendaw-soundfont",
     midiProgram: 1,
     soundfontId,
+    soundfontBank: 128,
     presetIndex: 0,
-    presetName: "Standard Drum Kit",
+    presetName: "Standard",
     isPercussion: true
   }
 };

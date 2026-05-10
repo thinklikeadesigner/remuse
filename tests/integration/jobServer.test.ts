@@ -5,12 +5,23 @@ import { join } from "node:path";
 import test from "node:test";
 import { createJobServer } from "../../src/server/http.ts";
 import { parseWavFormat } from "../../src/audio/wav.ts";
+import { createProvidersFromEnvironment } from "../../src/providers/index.ts";
 import { createMockProviders } from "../../src/providers/mock/index.ts";
 import { createPcmWavFixture } from "../helpers/wavFixture.ts";
 
 test("job backend accepts WAV upload, tracks state, and exposes mock pipeline result", async () => {
   const rootDir = await mkdtemp(join(tmpdir(), "remuse-job-server-"));
-  const app = createJobServer({ rootDir });
+  const app = createJobServer({
+    rootDir,
+    providers: ({ artifactStore }) =>
+      createProvidersFromEnvironment({
+        artifactStore,
+        env: {
+          REMUSE_PROVIDER: "mock",
+          REMUSE_OPENDAW_PROVIDER: "local-session"
+        }
+      })
+  });
   const upload = createPcmWavFixture();
 
   const created = (await app.api.createJobFromUpload({
@@ -49,6 +60,10 @@ test("job backend accepts WAV upload, tracks state, and exposes mock pipeline re
   assert.ok(result.midi.midiFiles.every((file) => file.filename.endsWith(".mid")));
   assert.equal(result.bounce.bounce.filename.endsWith(".bounce.wav"), true);
   assert.equal(result.bounce.bounce.format.bitDepth, 16);
+
+  const bounce = await app.api.getJobBounce(created.jobId);
+  assert.equal(bounce.filename, result.bounce.bounce.filename);
+  assert.equal(parseWavFormat(bounce.bytes).format.bitDepth, 16);
 });
 
 test("review page shows live progress while a job is active", async () => {
@@ -163,7 +178,7 @@ test("job backend pauses for human review of non-specific stems and resumes afte
   assert.equal(status.pendingInstrumentReviews.length, 2);
   assert.deepEqual(
     status.pendingInstrumentReviews[0]?.options.map((option) => option.displayName),
-    ["Percussion", "Organ", "Synthesizer"]
+    ["Brass", "Percussion", "Organ", "Synthesizer"]
   );
   assert.equal(status.pendingInstrumentReviews[0]?.clip.metadata.containsAudio, true);
   assert.ok((status.pendingInstrumentReviews[0]?.clip.metadata.clipStartSeconds ?? 0) > 0);

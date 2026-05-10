@@ -178,7 +178,8 @@ cp "${fakeRenderedWavPath}" "$out"
     renderBackend: {
       mode: "fluidsynth",
       command: fakeFluidSynthPath,
-      soundfontPath: fakeSoundfontPath
+      soundfontPath: fakeSoundfontPath,
+      renderTrackDiagnostics: true
     }
   });
   const pianoMidi = await artifactStore.saveMidiArtifact({
@@ -220,4 +221,13 @@ cp "${fakeRenderedWavPath}" "$out"
   assert.equal(bounce.bounce.metadata.renderer, "libfluidsynth");
   assert.equal(bounce.bounce.metadata.renderMode, "fluidsynth");
   assert.equal(bounce.bounce.metadata.soundfontFilename, "test.sf2");
+  assert.equal(bounce.bounce.metadata.diagnosticTrackBounceCount, 1);
+  assert.equal(bounce.diagnosticTrackBounces?.length, 1);
+  const diagnostic = bounce.diagnosticTrackBounces?.[0];
+  assert.ok(diagnostic);
+  assert.equal(diagnostic.trackName, "01 piano");
+  assert.equal(diagnostic.sampleLibraryKey, "grand-piano");
+  assert.equal(diagnostic.bounce.kind, "diagnostic-track-bounce");
+  assert.equal(diagnostic.bounce.metadata.renderMode, "fluidsynth-track-diagnostic");
+  assert.equal(parseWavFormat(await readFile(fileURLToPath(diagnostic.bounce.uri))).format.bitDepth, 16);
 });

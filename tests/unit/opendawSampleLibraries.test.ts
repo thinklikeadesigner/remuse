@@ -34,9 +34,39 @@ test("sampleLibraryForInstrument falls back when no key is present", () => {
   assert.match(assignment.fallbackReason ?? "", /No explicit sample library/);
 });
 
+test("sampleLibraryForInstrument maps current SoundFont program targets", () => {
+  const cases = [
+    { sampleLibraryKey: "studio-drums", canonicalName: "drums", family: "drums" as const, midiProgram: 1, soundfontBank: 128, presetIndex: 0, presetName: "Standard" },
+    { sampleLibraryKey: "electric-bass", canonicalName: "bass", family: "bass" as const, midiProgram: 34, presetIndex: 33, presetName: "Finger Bass" },
+    { sampleLibraryKey: "clean-electric-guitar", canonicalName: "guitar", family: "guitar" as const, midiProgram: 28, presetIndex: 27, presetName: "Electric Guitar Clean" },
+    { sampleLibraryKey: "studio-strings", canonicalName: "strings", family: "strings" as const, midiProgram: 50, presetIndex: 49, presetName: "Stereo Strings Slow" },
+    { sampleLibraryKey: "studio-brass", canonicalName: "brass", family: "wind" as const, midiProgram: 62, presetIndex: 61, presetName: "Brass Section" }
+  ];
+
+  for (const item of cases) {
+    const assignment = sampleLibraryForInstrument({
+      canonicalName: item.canonicalName,
+      family: item.family,
+      confidence: 0.88,
+      detectedFromArtifactId: `stem-${item.canonicalName}`,
+      method: "provider-native",
+      sampleLibraryKey: item.sampleLibraryKey
+    });
+
+    assert.equal(assignment.midiProgram, item.midiProgram);
+    if ("soundfontBank" in item) {
+      assert.equal(assignment.soundfontBank, item.soundfontBank);
+      assert.equal(assignment.isPercussion, true);
+    }
+    assert.equal(assignment.presetIndex, item.presetIndex);
+    assert.equal(assignment.presetName, item.presetName);
+  }
+});
+
 test("knownSampleLibraryKeys includes current ReMuse library keys", () => {
   const keys = knownSampleLibraryKeys();
   assert.equal(keys.includes("analog-synth"), true);
   assert.equal(keys.includes("grand-piano"), true);
+  assert.equal(keys.includes("studio-brass"), true);
   assert.equal(keys.includes("studio-drums"), true);
 });

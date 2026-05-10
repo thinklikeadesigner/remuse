@@ -32,6 +32,23 @@ function numberFromEnv(value: string | undefined, fallback: number): number {
   return parsed;
 }
 
+function booleanFromEnv(value: string | undefined, fallback: boolean): boolean {
+  if (value === undefined || value.trim().length === 0) {
+    return fallback;
+  }
+
+  const normalized = value.trim().toLowerCase();
+  if (normalized === "1" || normalized === "true" || normalized === "yes" || normalized === "on") {
+    return true;
+  }
+
+  if (normalized === "0" || normalized === "false" || normalized === "no" || normalized === "off") {
+    return false;
+  }
+
+  throw new Error(`Expected boolean environment value, received "${value}".`);
+}
+
 function providerModeFromEnv(env: ProviderEnvironment): ProviderMode {
   const mode = env.REMUSE_PROVIDER ?? "mock";
   if (mode !== "mock" && mode !== "mvsep") {
@@ -175,7 +192,8 @@ function withConfiguredOpenDawProvider(
           ...(env.REMUSE_FLUIDSYNTH_COMMAND === undefined || env.REMUSE_FLUIDSYNTH_COMMAND.trim().length === 0
             ? {}
             : { command: env.REMUSE_FLUIDSYNTH_COMMAND.trim() }),
-          timeoutMs: numberFromEnv(env.REMUSE_FLUIDSYNTH_TIMEOUT_MS, 5 * 60 * 1000)
+          timeoutMs: numberFromEnv(env.REMUSE_FLUIDSYNTH_TIMEOUT_MS, 5 * 60 * 1000),
+          renderTrackDiagnostics: booleanFromEnv(env.REMUSE_FLUIDSYNTH_TRACK_DIAGNOSTICS, false)
         }
       : { mode: "preview" };
 

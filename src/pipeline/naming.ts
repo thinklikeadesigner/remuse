@@ -18,18 +18,20 @@ const familyHints: Array<{
   { family: "drums", canonicalName: "toms", hints: ["tom", "toms"], confidence: 0.82, sampleLibraryKey: "studio-drums" },
   { family: "drums", canonicalName: "cymbals", hints: ["cymbal", "cymbals", "hat", "hats"], confidence: 0.82, sampleLibraryKey: "studio-drums" },
   { family: "drums", canonicalName: "drums", hints: ["drum", "drums"], confidence: 0.88, sampleLibraryKey: "studio-drums" },
-  { family: "bass", canonicalName: "bass", hints: ["bass"], confidence: 0.88, midiProgram: 33, sampleLibraryKey: "electric-bass" },
-  { family: "guitar", canonicalName: "guitar", hints: ["electric guitar", "acoustic guitar", "guitar", "strum"], confidence: 0.84, midiProgram: 29, sampleLibraryKey: "clean-electric-guitar" },
+  { family: "bass", canonicalName: "bass", hints: ["bass"], confidence: 0.88, midiProgram: 34, sampleLibraryKey: "electric-bass" },
+  { family: "guitar", canonicalName: "guitar", hints: ["electric guitar", "acoustic guitar", "guitar", "strum"], confidence: 0.84, midiProgram: 28, sampleLibraryKey: "clean-electric-guitar" },
   { family: "keys", canonicalName: "piano", hints: ["piano"], confidence: 0.88, midiProgram: 1, sampleLibraryKey: "grand-piano" },
   { family: "keys", canonicalName: "organ", hints: ["organ"], confidence: 0.78, midiProgram: 17, sampleLibraryKey: "tonewheel-organ" },
   { family: "keys", canonicalName: "keys", hints: ["keys", "keyboard"], confidence: 0.78, midiProgram: 5, sampleLibraryKey: "grand-piano" },
-  { family: "strings", canonicalName: "strings", hints: ["violin", "viola", "cello", "string", "strings"], confidence: 0.78, midiProgram: 49, sampleLibraryKey: "studio-strings" },
-  { family: "wind", canonicalName: "wind", hints: ["wind", "winds", "woodwind", "woodwinds", "brass", "trumpet", "trombone", "horn", "flute", "clarinet", "sax"], confidence: 0.74, midiProgram: 74, sampleLibraryKey: "studio-winds" },
+  { family: "strings", canonicalName: "strings", hints: ["violin", "viola", "cello", "string", "strings"], confidence: 0.78, midiProgram: 50, sampleLibraryKey: "studio-strings" },
+  { family: "wind", canonicalName: "brass", hints: ["brass", "trumpet", "trombone", "tuba", "french horn", "french horns"], confidence: 0.74, midiProgram: 62, sampleLibraryKey: "studio-brass" },
+  { family: "wind", canonicalName: "woodwinds", hints: ["wind", "winds", "woodwind", "woodwinds", "flute", "clarinet", "sax", "oboe", "english horn", "bassoon", "recorder", "piccolo"], confidence: 0.74, midiProgram: 74, sampleLibraryKey: "studio-winds" },
   { family: "synth", canonicalName: "synth", hints: ["synth", "synthesizer", "pad"], confidence: 0.78, midiProgram: 81, sampleLibraryKey: "analog-synth" },
   { family: "percussion", canonicalName: "percussion", hints: ["perc", "conga", "bongo", "shaker"], confidence: 0.72, sampleLibraryKey: "world-percussion" }
 ];
 
 export const HUMAN_INSTRUMENT_REVIEW_OPTIONS: readonly HumanInstrumentReviewOption[] = [
+  { canonicalName: "brass", displayName: "Brass", family: "wind", midiProgram: 62, sampleLibraryKey: "studio-brass" },
   { canonicalName: "percussion", displayName: "Percussion", family: "percussion", sampleLibraryKey: "world-percussion" },
   { canonicalName: "organ", displayName: "Organ", family: "keys", midiProgram: 17, sampleLibraryKey: "tonewheel-organ" },
   { canonicalName: "synth", displayName: "Synthesizer", family: "synth", midiProgram: 81, sampleLibraryKey: "analog-synth" }
