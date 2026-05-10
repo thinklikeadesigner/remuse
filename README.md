@@ -1,4 +1,17 @@
 # ReMuse
+<img width="1492" height="752" alt="image" src="https://github.com/user-attachments/assets/8e950583-447e-4028-bdf9-02c3a996078b" />
+
+## The Core Idea
+
+Old recordings don’t just lose sound. They lose presence.
+
+Distortion, hiss, compression, and damaged source material can make archival audio feel distant, even when the performance underneath is still alive. We built an agentic restoration pipeline that helps bring those recordings back into focus.
+
+Our system takes degraded audio, analyzes what needs to be repaired, separates musical components, applies restoration steps, and reconstructs a cleaner master track. In our demo, a noisy, distorted orchestral recording transforms into a clean Vivaldi performance while the visuals move from grainy black-and-white footage into a restored cinematic scene.
+
+The goal is not just cleaner audio. It is cultural preservation at scale: helping old performances, oral histories, family recordings, and archival media become listenable again without requiring hours of manual engineering.
+
+## Engineering
 
 ReMuse is a local TypeScript application for turning an uploaded WAV file into a MIDI-driven stereo remix. It accepts WAV PCM 16-bit or 24-bit, 44.1 kHz input, separates stems through a provider adapter, asks the user to review every returned stem, converts accepted stems to MIDI, assembles an OpenDAW-style session plan, maps instruments to SoundFont sample libraries, and returns a WAV PCM 16-bit, 44.1 kHz stereo bounce.
 
