@@ -3,7 +3,7 @@ import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
-import { createJobServer } from "../../src/server/http.ts";
+import { createJobServer, renderReviewClosedPage } from "../../src/server/http.ts";
 import { parseWavFormat } from "../../src/audio/wav.ts";
 import { createProvidersFromEnvironment } from "../../src/providers/index.ts";
 import { createMockProviders } from "../../src/providers/mock/index.ts";
@@ -215,8 +215,9 @@ test("job backend pauses for human review of non-specific stems and resumes afte
   assert.doesNotMatch(resolvedReviewPage, new RegExp(`<form method="post" action="/review/${created.jobId}/${reviewId}"`));
 
   await app.api.discardInstrumentReview(created.jobId, discardReviewId);
-  const discardedReviewPage = await app.api.getInstrumentReviewPage(created.jobId);
-  assert.match(discardedReviewPage, /Discarded from workflow\./);
+  const closePage = renderReviewClosedPage(created.jobId);
+  assert.match(closePage, /Manual Review Complete/);
+  assert.match(closePage, /window\.close\(\)/);
 
   let resumedStatus = (await app.api.getJobStatus(created.jobId)) as { status: string };
   for (let attempt = 0; attempt < 20 && resumedStatus.status !== "succeeded"; attempt += 1) {

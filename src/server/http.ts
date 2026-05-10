@@ -279,6 +279,14 @@ function reviewActionFromFormBody(body: URLSearchParams): ReviewFormAction {
   throw new HttpError(400, "Manual review form must include an instrument selection.");
 }
 
+function reviewUpdateCompleted(result: unknown): boolean {
+  if (result === null || typeof result !== "object" || Array.isArray(result)) {
+    return false;
+  }
+
+  return (result as Record<string, unknown>).status === "running";
+}
+
 function escapeHtml(input: string): string {
   return input
     .replace(/&/g, "&amp;")
@@ -372,6 +380,52 @@ function renderProgressPanel(record: PipelineJobRecord): string {
       <p>${escapeHtml(progress.message)}</p>
     </section>
   `;
+}
+
+export function renderReviewClosedPage(jobId: string): string {
+  const safeJobId = escapeHtml(jobId);
+
+  return `<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Manual Review Complete ${safeJobId}</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --bg: #090909;
+        --panel: #141414;
+        --line: #2b2b2b;
+        --text: #f6f2ea;
+        --muted: #aba49a;
+        --gold: #d8ae5f;
+        --green: #4d9f7a;
+        --shadow: rgba(0, 0, 0, 0.45);
+        font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      }
+      * { box-sizing: border-box; }
+      body { margin: 0; min-height: 100vh; display: grid; place-items: center; background: linear-gradient(180deg, #101010, var(--bg) 70%); color: var(--text); }
+      main { width: min(520px, calc(100% - 32px)); background: rgba(20, 20, 20, 0.92); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 8px; box-shadow: 0 22px 80px var(--shadow); padding: 22px; }
+      h1 { margin: 0 0 8px; font-size: 22px; letter-spacing: 0; }
+      p { margin: 8px 0 0; color: var(--muted); line-height: 1.45; }
+      code { color: var(--gold); }
+      .status-dot { display: inline-block; width: 10px; height: 10px; margin-right: 8px; background: var(--green); box-shadow: 0 0 18px rgba(77, 159, 122, 0.7); vertical-align: middle; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1><span class="status-dot" aria-hidden="true"></span>Manual Review Complete</h1>
+      <p>ReMuse is continuing job <code>${safeJobId}</code>. This tab should close automatically.</p>
+      <p>If it stays open, your browser blocked the close request and you can close it manually.</p>
+    </main>
+    <script>
+      window.setTimeout(() => {
+        window.close();
+      }, 150);
+    </script>
+  </body>
+</html>`;
 }
 
 function renderReviewPage(record: PipelineJobRecord): string {
@@ -875,11 +929,18 @@ export function createJobServer(options: JobServerOptions): JobServerApp {
       const reviewFormRoute = request.method === "POST" ? routeReviewForm(url.pathname) : undefined;
       if (reviewFormRoute !== undefined) {
         const action = reviewActionFromFormBody(await readFormBody(request, maxUploadBytes));
+        let result: unknown;
         if (action.kind === "discard") {
-          await api.discardInstrumentReview(reviewFormRoute.jobId, reviewFormRoute.reviewRequestId);
+          result = await api.discardInstrumentReview(reviewFormRoute.jobId, reviewFormRoute.reviewRequestId);
         } else {
-          await api.submitInstrumentReview(reviewFormRoute.jobId, reviewFormRoute.reviewRequestId, action.selection);
+          result = await api.submitInstrumentReview(reviewFormRoute.jobId, reviewFormRoute.reviewRequestId, action.selection);
         }
+
+        if (reviewUpdateCompleted(result)) {
+          sendHtml(response, 200, renderReviewClosedPage(reviewFormRoute.jobId));
+          return;
+        }
+
         redirect(response, `/review/${encodeURIComponent(reviewFormRoute.jobId)}`);
         return;
       }
