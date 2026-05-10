@@ -4,7 +4,7 @@
 
 Phase 3 treats provider-native stem labels and provider output filenames as the authoritative signal for instrument labeling.
 
-The current MVSEP stem-separation output already names stems with instrument suffixes such as `vocals`, `lead vocals`, `back vocals`, `drums`, `kick`, `snare`, `toms`, `cymbals`, `bass`, `guitar`, `piano`, `strings`, `wind`, `other`, and `instrum`. ReMuse normalizes those labels into its own instrument taxonomy and does not send stems through a separate AI/audio classifier.
+The current MVSEP stem-separation output already names stems with instrument suffixes such as `vocals`, `instrum`, `bass`, `drums`, `guitar`, `piano`, and `other`. ReMuse normalizes those labels into its own instrument taxonomy and does not send stems through a separate AI/audio classifier.
 
 ## Flow
 
@@ -15,24 +15,16 @@ MVSEP stem artifact
 -> MIDI filename and sample-library key
 ```
 
-## Ensemble All-In Inventory
+## BS Roformer SW Inventory
 
-The MVSEP Ensemble All-In path is based on the multi-stem ensemble and adds dedicated extraction for guitar, piano, wind, strings, lead/back vocals, and drumsep outputs. ReMuse treats the following provider stem labels as canonical:
+The active MVSEP path uses `BS Roformer SW (vocals, bass, drums, guitar, piano, other)`, which usually returns six stems and may include an instrumental aggregate. ReMuse expects no more than seven stem artifacts from this path and treats the following provider stem labels as canonical:
 
 - `vocals`
-- `lead-vocals`
-- `back-vocals`
-- `drums`
-- `kick`
-- `snare`
-- `toms`
-- `cymbals`
+- `instrumental`
 - `bass`
+- `drums`
 - `guitar`
 - `piano`
-- `strings`
-- `wind`
-- `instrumental`
 - `other`
 
 ## Confidence Policy
@@ -53,8 +45,11 @@ The MVSEP Ensemble All-In path is based on the multi-stem ensemble and adds dedi
 
 When ReMuse sees a non-specific stem label, it creates a `review-clip` artifact and pauses the job in `awaiting-review`.
 
-The clip generator scans the stem for audio content and extracts a five-second WAV clip around the first non-silent section. The review options are intentionally limited to instruments not already explicitly separated by MVSEP. `Wind` already covers brass and woodwinds in MVSEP, and `strings` is also separated by Ensemble All-In, so those are not duplicated as manual choices.
+The clip generator scans the stem for audio content and extracts a five-second WAV clip around the first non-silent section. The review options are intentionally limited to instruments not already explicitly separated by BS Roformer SW.
 
+- Brass
+- Woodwinds
+- Strings
 - Percussion
 - Organ
 - Synthesizer

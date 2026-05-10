@@ -1,4 +1,5 @@
 import type {
+  DereverbResult,
   HumanInstrumentReviewRequest,
   InstrumentLabel,
   InstrumentStem,
@@ -95,6 +96,25 @@ function renderTargetForState(state: PipelineManualReviewState): OpenDawRenderTa
   };
 }
 
+function bypassDereverb(inputAudio: PipelineJobInput["inputAudio"]): DereverbResult {
+  return {
+    dryOnly: {
+      ...inputAudio,
+      id: `${inputAudio.id}-dereverb-bypass-dry`,
+      kind: "dry-audio",
+      sourceArtifactIds: [inputAudio.id],
+      metadata: {
+        ...inputAudio.metadata,
+        provider: "remuse-dereverb-bypass",
+        providerNative: false,
+        bypassed: true,
+        sourceArtifactId: inputAudio.id,
+        sourceKind: inputAudio.kind
+      }
+    }
+  };
+}
+
 async function finishPipelineFromLabeledStems(
   state: PipelineManualReviewState,
   providers: PipelineProviders,
@@ -152,11 +172,16 @@ export async function runPipeline(
   }
   await runtime.succeed("validate-input", "Input audio format accepted.");
 
-  await runtime.start("de-reverb", "Splitting input into dry-only and reverb-only tracks.");
-  const dereverb = await providers.dereverb.splitReverb(input.inputAudio, runtime.context);
-  await runtime.succeed("de-reverb", "De-reverb split completed.");
+  // De-reverb is intentionally bypassed while comparing stem-separation quality on the original input.
+  await runtime.emit({
+    step: "de-reverb",
+    status: "skipped",
+    message: "De-reverb bypassed; using original input for stem separation.",
+    at: nowIso()
+  });
+  const dereverb = bypassDereverb(input.inputAudio);
 
-  await runtime.start("instrument-stem-separation", "Separating dry-only audio into instrument stems.");
+  await runtime.start("instrument-stem-separation", "Separating original input audio into instrument stems.");
   const separatedStems = await providers.instrumentStemSeparation.separateInstruments(dereverb.dryOnly, runtime.context);
   await runtime.succeed("instrument-stem-separation", `Created ${separatedStems.length} instrument stems.`);
 

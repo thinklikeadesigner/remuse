@@ -100,7 +100,7 @@ export type InstrumentStem = {
 
 export type DereverbResult = {
   dryOnly: AudioArtifact & { kind: "dry-audio" };
-  reverbOnly: AudioArtifact & { kind: "reverb-audio" };
+  reverbOnly?: AudioArtifact & { kind: "reverb-audio" };
 };
 
 export type MidiConversionResult = {

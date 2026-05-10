@@ -91,18 +91,19 @@ test("sortMvsepStemFiles keeps predictable musical stem order", () => {
   const files = extractMvsepFiles({
     data: {
       files: [
-        { label: "wind", url: "https://cdn.example.test/wind.wav" },
-        { label: "snare", url: "https://cdn.example.test/snare.wav" },
+        { label: "other", url: "https://cdn.example.test/other.wav" },
         { label: "piano", url: "https://cdn.example.test/piano.wav" },
-        { label: "back vocals", url: "https://cdn.example.test/back-vocals.wav" },
+        { label: "guitar", url: "https://cdn.example.test/guitar.wav" },
         { label: "vocals", url: "https://cdn.example.test/vocals.wav" },
-        { label: "drums", url: "https://cdn.example.test/drums.wav" }
+        { label: "bass", url: "https://cdn.example.test/bass.wav" },
+        { label: "drums", url: "https://cdn.example.test/drums.wav" },
+        { label: "instrum", url: "https://cdn.example.test/instrum.wav" }
       ]
     }
   });
 
   assert.deepEqual(
     sortMvsepStemFiles(files).map((file) => file.label),
-    ["vocals", "back vocals", "drums", "snare", "piano", "wind"]
+    ["vocals", "instrum", "bass", "drums", "guitar", "piano", "other"]
   );
 });

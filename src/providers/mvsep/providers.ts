@@ -32,9 +32,9 @@ export type MvsepProviderOptions = {
 export const MVSEP_DEREVERB_SEP_TYPE = 22;
 export const MVSEP_DEREVERB_MODEL_TYPE = "0";
 export const MVSEP_DEREVERB_PREPROCESS_MODE = "1";
-export const MVSEP_INSTRUMENT_STEM_SEP_TYPE = 30;
-export const MVSEP_INSTRUMENT_STEM_OUTPUT_FILES = "0";
-export const MVSEP_INSTRUMENT_STEM_MODEL_TYPE = "11";
+export const MVSEP_INSTRUMENT_STEM_SEP_TYPE = 63;
+export const MVSEP_INSTRUMENT_STEM_ALGORITHM_NAME = "BS Roformer SW";
+export const MVSEP_INSTRUMENT_STEM_MAX_OUTPUT_FILES = 7;
 const defaultOutputFormat = 1;
 
 function nowIso(): string {
@@ -148,14 +148,12 @@ export class MvsepInstrumentStemSeparationProvider implements InstrumentStemSepa
     const created = await this.client.createSeparation({
       inputAudio: dryOnly,
       sepType: MVSEP_INSTRUMENT_STEM_SEP_TYPE,
-      addOpt1: MVSEP_INSTRUMENT_STEM_OUTPUT_FILES,
-      addOpt2: MVSEP_INSTRUMENT_STEM_MODEL_TYPE,
       outputFormat: this.outputFormat
     });
     await context.emit({
       step: "instrument-stem-separation",
       status: "running",
-      message: `MVSEP Ensemble All-In instrument stem job ${created.hash} queued.`,
+      message: `MVSEP ${MVSEP_INSTRUMENT_STEM_ALGORITHM_NAME} instrument stem job ${created.hash} queued.`,
       at: nowIso()
     });
 
@@ -164,6 +162,11 @@ export class MvsepInstrumentStemSeparationProvider implements InstrumentStemSepa
 
     if (files.length === 0) {
       throw new Error(`MVSEP instrument stem job ${created.hash} did not return any stem artifacts.`);
+    }
+    if (files.length > MVSEP_INSTRUMENT_STEM_MAX_OUTPUT_FILES) {
+      throw new Error(
+        `MVSEP ${MVSEP_INSTRUMENT_STEM_ALGORITHM_NAME} job ${created.hash} returned ${files.length} stem artifacts; expected at most ${MVSEP_INSTRUMENT_STEM_MAX_OUTPUT_FILES}.`
+      );
     }
 
     const stems: InstrumentStem[] = [];

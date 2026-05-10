@@ -15,7 +15,7 @@ test("sampleLibraryForInstrument maps normalized instrument keys to OpenDAW targ
 
   assert.equal(assignment.key, "grand-piano");
   assert.equal(assignment.engine, "opendaw-soundfont");
-  assert.equal(assignment.presetName, "Acoustic Grand Piano");
+  assert.equal(assignment.presetName, "Stereo Grand");
   assert.equal(assignment.midiProgram, 1);
 });
 
@@ -36,11 +36,17 @@ test("sampleLibraryForInstrument falls back when no key is present", () => {
 
 test("sampleLibraryForInstrument maps current SoundFont program targets", () => {
   const cases = [
-    { sampleLibraryKey: "studio-drums", canonicalName: "drums", family: "drums" as const, midiProgram: 1, soundfontBank: 128, presetIndex: 0, presetName: "Standard" },
-    { sampleLibraryKey: "electric-bass", canonicalName: "bass", family: "bass" as const, midiProgram: 34, presetIndex: 33, presetName: "Finger Bass" },
-    { sampleLibraryKey: "clean-electric-guitar", canonicalName: "guitar", family: "guitar" as const, midiProgram: 28, presetIndex: 27, presetName: "Electric Guitar Clean" },
-    { sampleLibraryKey: "studio-strings", canonicalName: "strings", family: "strings" as const, midiProgram: 50, presetIndex: 49, presetName: "Stereo Strings Slow" },
-    { sampleLibraryKey: "studio-brass", canonicalName: "brass", family: "wind" as const, midiProgram: 62, presetIndex: 61, presetName: "Brass Section" }
+    { sampleLibraryKey: "lead-vocal-synth", canonicalName: "lead-vocals", family: "vocal" as const, midiProgram: 86, presetIndex: 85, presetName: "Solo Vox" },
+    { sampleLibraryKey: "backing-vocal-synth", canonicalName: "back-vocals", family: "vocal" as const, midiProgram: 54, presetIndex: 53, presetName: "Voice Oohs" },
+    { sampleLibraryKey: "vocal-synth", canonicalName: "vocals", family: "vocal" as const, midiProgram: 86, presetIndex: 85, presetName: "Solo Vox" },
+    { sampleLibraryKey: "studio-drums", canonicalName: "drums", family: "drums" as const, midiProgram: 33, soundfontBank: 128, presetIndex: 32, presetName: "Jazz" },
+    { sampleLibraryKey: "electric-bass", canonicalName: "bass", family: "bass" as const, midiProgram: 33, presetIndex: 32, presetName: "Acoustic Bass" },
+    { sampleLibraryKey: "clean-electric-guitar", canonicalName: "guitar", family: "guitar" as const, midiProgram: 27, presetIndex: 26, presetName: "Jazz Guitar" },
+    { sampleLibraryKey: "studio-strings", canonicalName: "strings", family: "strings" as const, midiProgram: 49, presetIndex: 48, presetName: "Stereo Strings Fast" },
+    { sampleLibraryKey: "studio-brass", canonicalName: "brass", family: "wind" as const, midiProgram: 62, presetIndex: 61, presetName: "Brass Section" },
+    { sampleLibraryKey: "studio-winds", canonicalName: "woodwinds", family: "wind" as const, midiProgram: 67, presetIndex: 66, presetName: "Tenor Sax" },
+    { sampleLibraryKey: "analog-synth", canonicalName: "synth", family: "synth" as const, midiProgram: 90, presetIndex: 89, presetName: "Warm Pad" },
+    { sampleLibraryKey: "world-percussion", canonicalName: "percussion", family: "percussion" as const, midiProgram: 33, soundfontBank: 128, presetIndex: 32, presetName: "Jazz" }
   ];
 
   for (const item of cases) {

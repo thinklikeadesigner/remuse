@@ -8,8 +8,8 @@ import {
   MVSEP_DEREVERB_MODEL_TYPE,
   MVSEP_DEREVERB_PREPROCESS_MODE,
   MVSEP_DEREVERB_SEP_TYPE,
-  MVSEP_INSTRUMENT_STEM_MODEL_TYPE,
-  MVSEP_INSTRUMENT_STEM_OUTPUT_FILES,
+  MVSEP_INSTRUMENT_STEM_ALGORITHM_NAME,
+  MVSEP_INSTRUMENT_STEM_MAX_OUTPUT_FILES,
   MVSEP_INSTRUMENT_STEM_SEP_TYPE,
   MvsepInstrumentStemSeparationProvider
 } from "../../src/providers/mvsep/providers.ts";
@@ -22,7 +22,7 @@ test("MVSEP de-reverb options select FoxJoy MDX23C reverb removal", () => {
   assert.equal(MVSEP_DEREVERB_PREPROCESS_MODE, "1");
 });
 
-test("MVSEP instrument stem options select Ensemble All-In 2025.06.30", async () => {
+test("MVSEP instrument stem options select BS Roformer SW", async () => {
   const rootDir = await mkdtemp(join(tmpdir(), "remuse-mvsep-options-"));
   const artifactStore = new FileArtifactStore({ rootDir });
   const dryOnly = await artifactStore.saveAudioArtifact({
@@ -62,10 +62,58 @@ test("MVSEP instrument stem options select Ensemble All-In 2025.06.30", async ()
     /did not return any stem artifacts/
   );
 
-  assert.equal(MVSEP_INSTRUMENT_STEM_SEP_TYPE, 30);
-  assert.equal(MVSEP_INSTRUMENT_STEM_OUTPUT_FILES, "0");
-  assert.equal(MVSEP_INSTRUMENT_STEM_MODEL_TYPE, "11");
-  assert.equal(submittedForm?.get("sep_type"), "30");
-  assert.equal(submittedForm?.get("add_opt1"), "0");
-  assert.equal(submittedForm?.get("add_opt2"), "11");
+  assert.equal(MVSEP_INSTRUMENT_STEM_SEP_TYPE, 63);
+  assert.equal(MVSEP_INSTRUMENT_STEM_ALGORITHM_NAME, "BS Roformer SW");
+  assert.equal(MVSEP_INSTRUMENT_STEM_MAX_OUTPUT_FILES, 7);
+  assert.equal(submittedForm?.get("sep_type"), "63");
+  assert.equal(submittedForm?.get("add_opt1"), null);
+  assert.equal(submittedForm?.get("add_opt2"), null);
+});
+
+test("MVSEP BS Roformer SW rejects unexpected extra stem outputs", async () => {
+  const rootDir = await mkdtemp(join(tmpdir(), "remuse-mvsep-output-count-"));
+  const artifactStore = new FileArtifactStore({ rootDir });
+  const dryOnly = await artifactStore.saveAudioArtifact({
+    jobId: "job-mvsep-output-count",
+    stage: "dereverb",
+    kind: "dry-audio",
+    filename: "source.wav",
+    bytes: createPcmWavFixture(),
+    sourceArtifactIds: ["input"]
+  });
+  const client = new MvsepClient({
+    apiToken: "test-token",
+    baseUrl: "https://mvsep.example.test",
+    pollIntervalMs: 0,
+    maxPollAttempts: 1,
+    fetchImpl: async (url) => {
+      const pathname = url instanceof URL ? url.pathname : new URL(String(url)).pathname;
+
+      if (pathname.endsWith("/api/separation/create")) {
+        return Response.json({ success: true, data: { hash: "mvsep-job-extra-stems" } });
+      }
+
+      return Response.json({
+        success: true,
+        status: "done",
+        data: {
+          files: Array.from({ length: 8 }, (_, index) => ({
+            label: `stem-${index + 1}`,
+            url: `https://cdn.example.test/stem-${index + 1}.wav`
+          }))
+        }
+      });
+    }
+  });
+  const provider = new MvsepInstrumentStemSeparationProvider(client, artifactStore);
+
+  await assert.rejects(
+    () =>
+      provider.separateInstruments(dryOnly.artifact, {
+        jobId: "job-mvsep-output-count",
+        traceId: "trace-job-mvsep-output-count",
+        emit: () => undefined
+      }),
+    /expected at most 7/
+  );
 });

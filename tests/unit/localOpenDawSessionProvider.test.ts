@@ -114,7 +114,7 @@ test("LocalOpenDawSessionProvider assembles session tracks and renders a WAV bou
   assert.equal(assembled.session.trackCount, 2);
   assert.equal(assembled.tracks[0]?.trackName, "01 piano");
   assert.equal(assembled.tracks[0]?.sampleLibraryKey, "grand-piano");
-  assert.equal(assembled.tracks[0]?.sampleLibrary.presetName, "Acoustic Grand Piano");
+  assert.equal(assembled.tracks[0]?.sampleLibrary.presetName, "Stereo Grand");
   assert.equal(assembled.tracks[0]?.sampleLibraryLoaded, true);
   assert.equal(assembled.tracks[1]?.sampleLibraryKey, "general-midi-fallback");
   assert.match(assembled.tracks[1]?.sampleLibrary.fallbackReason ?? "", /No explicit sample library/);

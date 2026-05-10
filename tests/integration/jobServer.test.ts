@@ -45,6 +45,7 @@ test("job backend accepts WAV upload, tracks state, and exposes mock pipeline re
   }
 
   assert.equal(status.status, "succeeded");
+  assert.equal(status.events.find((event) => event.step === "de-reverb")?.status, "skipped");
   assert.equal(status.events.at(-1)?.step, "opendaw-bounce");
   assert.equal(status.events.at(-1)?.status, "succeeded");
 
@@ -74,15 +75,15 @@ test("job backend accepts WAV upload, tracks state, and exposes mock pipeline re
 test("review page shows live progress while a job is active", async () => {
   const rootDir = await mkdtemp(join(tmpdir(), "remuse-job-progress-"));
   const providers = createMockProviders();
-  const originalDereverb = providers.dereverb;
-  let releaseDereverb: () => void = () => undefined;
-  const dereverbGate = new Promise<void>((resolve) => {
-    releaseDereverb = resolve;
+  const originalStemSeparation = providers.instrumentStemSeparation;
+  let releaseStemSeparation: () => void = () => undefined;
+  const stemSeparationGate = new Promise<void>((resolve) => {
+    releaseStemSeparation = resolve;
   });
-  providers.dereverb = {
-    async splitReverb(input, context) {
-      await dereverbGate;
-      return originalDereverb.splitReverb(input, context);
+  providers.instrumentStemSeparation = {
+    async separateInstruments(dryOnly, context) {
+      await stemSeparationGate;
+      return originalStemSeparation.separateInstruments(dryOnly, context);
     }
   };
   const app = createJobServer({ rootDir, providers });
@@ -111,7 +112,7 @@ test("review page shows live progress while a job is active", async () => {
     assert.match(reviewPage, /<progress max="100" value="/);
     assert.match(reviewPage, /This page refreshes while the job is active\./);
   } finally {
-    releaseDereverb();
+    releaseStemSeparation();
   }
 });
 
@@ -183,7 +184,7 @@ test("job backend pauses for human review of non-specific stems and resumes afte
   assert.equal(status.pendingInstrumentReviews.length, 2);
   assert.deepEqual(
     status.pendingInstrumentReviews[0]?.options.map((option) => option.displayName),
-    ["Brass", "Percussion", "Organ", "Synthesizer"]
+    ["Brass", "Woodwinds", "Strings", "Percussion", "Organ", "Synthesizer"]
   );
   assert.equal(status.pendingInstrumentReviews[0]?.clip.metadata.containsAudio, true);
   assert.ok((status.pendingInstrumentReviews[0]?.clip.metadata.clipStartSeconds ?? 0) > 0);

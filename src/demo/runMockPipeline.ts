@@ -24,7 +24,7 @@ console.log(
     {
       jobId: result.jobId,
       dryTrack: result.dereverb.dryOnly.filename,
-      reverbTrack: result.dereverb.reverbOnly.filename,
+      reverbTrack: result.dereverb.reverbOnly?.filename ?? "de-reverb bypassed",
       stems: result.instrumentStems.map((item) => ({
         file: item.stem.filename,
         instrument: item.label?.canonicalName,

@@ -22,26 +22,18 @@ test("inferInstrumentLabelFromName maps common names to sample libraries", () =>
   assert.equal(label.canonicalName, "guitar");
   assert.equal(label.family, "guitar");
   assert.equal(label.sampleLibraryKey, "clean-electric-guitar");
-  assert.equal(label.midiProgram, 28);
+  assert.equal(label.midiProgram, 27);
 });
 
-test("inferInstrumentLabel covers MVSEP Ensemble All-In stem inventory", () => {
+test("inferInstrumentLabel covers MVSEP BS Roformer SW stem inventory", () => {
   const labels = [
     ["vocals", "vocals"],
-    ["lead vocals", "lead-vocals"],
-    ["back vocals", "back-vocals"],
-    ["drums", "drums"],
-    ["kick", "kick"],
-    ["snare", "snare"],
-    ["toms", "toms"],
-    ["cymbals", "cymbals"],
+    ["instrum", "instrumental"],
+    ["instrumental", "instrumental"],
     ["bass", "bass"],
+    ["drums", "drums"],
     ["guitar", "guitar"],
     ["piano", "piano"],
-    ["strings", "strings"],
-    ["wind", "woodwinds"],
-    ["brass", "brass"],
-    ["instrum", "instrumental"],
     ["other", "other"]
   ] as const;
 
@@ -55,6 +47,10 @@ test("instrumentNameCandidateFromFilename extracts provider stem suffixes", () =
   assert.equal(
     instrumentNameCandidateFromFilename("20260509183642-song_bs6stem_mt_0_instrum.wav"),
     "instrum"
+  );
+  assert.equal(
+    instrumentNameCandidateFromFilename("20260509183642-song_bs_roformer_sw_mt_0_piano.wav"),
+    "piano"
   );
   assert.equal(instrumentNameCandidateFromFilename("song.dry-only.stem-04.clean-guitar.wav"), "clean-guitar");
 });
@@ -84,7 +80,7 @@ test("inferInstrumentLabel trusts provider labels before filename fallback", () 
 test("manual review options cover non-MVSEP instrument choices", () => {
   assert.deepEqual(
     humanInstrumentReviewOptions().map((option) => option.displayName),
-    ["Brass", "Percussion", "Organ", "Synthesizer"]
+    ["Brass", "Woodwinds", "Strings", "Percussion", "Organ", "Synthesizer"]
   );
 
   const label = labelForManualInstrumentSelection("Synthesizer", "stem-999");
@@ -97,6 +93,16 @@ test("manual review options cover non-MVSEP instrument choices", () => {
   assert.equal(brass.canonicalName, "brass");
   assert.equal(brass.midiProgram, 62);
   assert.equal(brass.sampleLibraryKey, "studio-brass");
+
+  const woodwinds = labelForManualInstrumentSelection("Woodwinds", "stem-997");
+  assert.equal(woodwinds.canonicalName, "woodwinds");
+  assert.equal(woodwinds.midiProgram, 67);
+  assert.equal(woodwinds.sampleLibraryKey, "studio-winds");
+
+  const strings = labelForManualInstrumentSelection("Strings", "stem-996");
+  assert.equal(strings.canonicalName, "strings");
+  assert.equal(strings.midiProgram, 49);
+  assert.equal(strings.sampleLibraryKey, "studio-strings");
 });
 
 test("makeMidiFilename preserves job, order, and instrument label", () => {

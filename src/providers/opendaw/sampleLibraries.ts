@@ -9,27 +9,17 @@ const soundfontId = "opendaw-general-midi";
 const sampleLibraries: Record<string, SampleLibraryDefinition> = {
   "lead-vocal-synth": {
     key: "lead-vocal-synth",
-    displayName: "Voice Lead Synth",
+    displayName: "Solo Vox Lead",
     family: "vocal",
     engine: "opendaw-soundfont",
-    midiProgram: 54,
+    midiProgram: 86,
     soundfontId,
-    presetIndex: 53,
-    presetName: "Voice Oohs"
+    presetIndex: 85,
+    presetName: "Solo Vox"
   },
   "backing-vocal-synth": {
     key: "backing-vocal-synth",
-    displayName: "Backing Vocal Pad",
-    family: "vocal",
-    engine: "opendaw-soundfont",
-    midiProgram: 55,
-    soundfontId,
-    presetIndex: 54,
-    presetName: "Synth Voice"
-  },
-  "vocal-synth": {
-    key: "vocal-synth",
-    displayName: "Vocal Synth",
+    displayName: "Backing Voice Oohs",
     family: "vocal",
     engine: "opendaw-soundfont",
     midiProgram: 54,
@@ -37,47 +27,57 @@ const sampleLibraries: Record<string, SampleLibraryDefinition> = {
     presetIndex: 53,
     presetName: "Voice Oohs"
   },
+  "vocal-synth": {
+    key: "vocal-synth",
+    displayName: "Solo Vox",
+    family: "vocal",
+    engine: "opendaw-soundfont",
+    midiProgram: 86,
+    soundfontId,
+    presetIndex: 85,
+    presetName: "Solo Vox"
+  },
   "studio-drums": {
     key: "studio-drums",
-    displayName: "Studio Drums",
+    displayName: "Jazz Drums",
     family: "drums",
     engine: "opendaw-soundfont",
-    midiProgram: 1,
+    midiProgram: 33,
     soundfontId,
     soundfontBank: 128,
-    presetIndex: 0,
-    presetName: "Standard",
+    presetIndex: 32,
+    presetName: "Jazz",
     isPercussion: true
   },
   "electric-bass": {
     key: "electric-bass",
-    displayName: "Electric Bass",
+    displayName: "Upright Bass",
     family: "bass",
     engine: "opendaw-soundfont",
-    midiProgram: 34,
+    midiProgram: 33,
     soundfontId,
-    presetIndex: 33,
-    presetName: "Finger Bass"
+    presetIndex: 32,
+    presetName: "Acoustic Bass"
   },
   "clean-electric-guitar": {
     key: "clean-electric-guitar",
-    displayName: "Clean Electric Guitar",
+    displayName: "Jazz Guitar",
     family: "guitar",
     engine: "opendaw-soundfont",
-    midiProgram: 28,
+    midiProgram: 27,
     soundfontId,
-    presetIndex: 27,
-    presetName: "Electric Guitar Clean"
+    presetIndex: 26,
+    presetName: "Jazz Guitar"
   },
   "grand-piano": {
     key: "grand-piano",
-    displayName: "Grand Piano",
+    displayName: "Stereo Grand Piano",
     family: "keys",
     engine: "opendaw-soundfont",
     midiProgram: 1,
     soundfontId,
     presetIndex: 0,
-    presetName: "Acoustic Grand Piano"
+    presetName: "Stereo Grand"
   },
   "tonewheel-organ": {
     key: "tonewheel-organ",
@@ -87,17 +87,17 @@ const sampleLibraries: Record<string, SampleLibraryDefinition> = {
     midiProgram: 17,
     soundfontId,
     presetIndex: 16,
-    presetName: "Drawbar Organ"
+    presetName: "Tonewheel Organ"
   },
   "studio-strings": {
     key: "studio-strings",
     displayName: "Studio Strings",
     family: "strings",
     engine: "opendaw-soundfont",
-    midiProgram: 50,
+    midiProgram: 49,
     soundfontId,
-    presetIndex: 49,
-    presetName: "Stereo Strings Slow"
+    presetIndex: 48,
+    presetName: "Stereo Strings Fast"
   },
   "studio-brass": {
     key: "studio-brass",
@@ -111,34 +111,34 @@ const sampleLibraries: Record<string, SampleLibraryDefinition> = {
   },
   "studio-winds": {
     key: "studio-winds",
-    displayName: "Studio Winds",
+    displayName: "Tenor Sax",
     family: "wind",
     engine: "opendaw-soundfont",
-    midiProgram: 74,
+    midiProgram: 67,
     soundfontId,
-    presetIndex: 73,
-    presetName: "Flute"
+    presetIndex: 66,
+    presetName: "Tenor Sax"
   },
   "analog-synth": {
     key: "analog-synth",
-    displayName: "Analog Synth",
+    displayName: "Warm Synth Pad",
     family: "synth",
     engine: "opendaw-soundfont",
-    midiProgram: 81,
+    midiProgram: 90,
     soundfontId,
-    presetIndex: 80,
-    presetName: "Lead 1 Square"
+    presetIndex: 89,
+    presetName: "Warm Pad"
   },
   "world-percussion": {
     key: "world-percussion",
-    displayName: "World Percussion",
+    displayName: "Jazz Percussion",
     family: "percussion",
     engine: "opendaw-soundfont",
-    midiProgram: 1,
+    midiProgram: 33,
     soundfontId,
     soundfontBank: 128,
-    presetIndex: 0,
-    presetName: "Standard",
+    presetIndex: 32,
+    presetName: "Jazz",
     isPercussion: true
   }
 };
@@ -151,7 +151,7 @@ const fallbackLibrary: SampleLibraryDefinition = {
   midiProgram: 1,
   soundfontId,
   presetIndex: 0,
-  presetName: "Acoustic Grand Piano",
+  presetName: "Stereo Grand",
   fallbackReason: "No explicit sample library was mapped for this instrument."
 };
 

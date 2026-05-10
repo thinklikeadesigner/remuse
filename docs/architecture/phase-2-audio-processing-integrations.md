@@ -27,7 +27,7 @@ Optional MVSEP settings:
 
 - `MvsepDereverbProvider`: queues MVSEP `sep_type=22` with `add_opt1=0` for `Reverb removal by FoxJoy (MDX23C)` and `add_opt2=1` to use the full mix as-is, polls until completion, downloads the dry/no-reverb output, and persists it as a Remuse artifact.
 - Local residual renderer: when MVSEP does not return a native reverb-only artifact, Remuse renders `reverbOnly` locally as `original - dryOnly` and persists the result as WAV PCM 16-bit, 44.1 kHz.
-- `MvsepInstrumentStemSeparationProvider`: queues MVSEP `sep_type=30` for `Ensemble All-In (vocals, bass, drums, piano, guitar, lead/back vocals, other)`, with `add_opt1=0` for standard output files and `add_opt2=11` for `SDR average: 13.67 (v. 2025.06.30)`, polls until completion, downloads returned stems, normalizes provider labels, and persists local stem artifacts.
+- `MvsepInstrumentStemSeparationProvider`: queues MVSEP `sep_type=63` for `BS Roformer SW (vocals, bass, drums, guitar, piano, other)`, sends no algorithm-specific `add_opt` fields, polls until completion, downloads returned stems, normalizes provider labels, and persists local stem artifacts. ReMuse expects the standard output set and rejects responses with more than seven stem artifacts because that usually indicates the wrong algorithm or non-standard output options.
 - `ProviderNativeInstrumentIdentificationProvider`: preserves provider-native stem labels for downstream MIDI naming and sample-library choice.
 
 ## Artifact Persistence

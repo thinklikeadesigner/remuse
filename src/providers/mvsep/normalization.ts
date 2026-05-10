@@ -11,22 +11,22 @@ export type MvsepFileRef = {
 
 const stemOrder = [
   "vocals",
+  "instrumental",
+  "bass",
+  "drums",
+  "guitar",
+  "piano",
+  "other",
   "lead-vocals",
   "back-vocals",
-  "drums",
   "kick",
   "snare",
   "toms",
   "cymbals",
-  "bass",
-  "guitar",
-  "piano",
   "strings",
   "brass",
   "woodwinds",
-  "wind",
-  "instrum",
-  "other"
+  "wind"
 ];
 
 function stringValue(input: unknown): string | undefined {
