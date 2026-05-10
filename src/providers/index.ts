@@ -5,9 +5,12 @@ import { BasicPitchMidiConversionProvider, type BasicPitchModelSerialization } f
 import { HttpMidiConversionProvider } from "./midi/httpMidiConversionProvider.ts";
 import { createMockProviders } from "./mock/index.ts";
 import { createMvsepProviders } from "./mvsep/providers.ts";
+import { LocalOpenDawSessionProvider, type LocalOpenDawRenderBackendOptions } from "./opendaw/localSessionProvider.ts";
 
 export type ProviderMode = "mock" | "mvsep";
 export type MidiProviderMode = "mock" | "http" | "basic-pitch";
+export type OpenDawProviderMode = "mock" | "local-session";
+export type OpenDawRendererMode = "preview" | "fluidsynth";
 
 export type ProviderEnvironment = Record<string, string | undefined>;
 
@@ -47,6 +50,24 @@ function midiProviderModeFromEnv(env: ProviderEnvironment): MidiProviderMode {
   return mode;
 }
 
+function openDawProviderModeFromEnv(env: ProviderEnvironment): OpenDawProviderMode {
+  const mode = env.REMUSE_OPENDAW_PROVIDER ?? "local-session";
+  if (mode !== "mock" && mode !== "local-session") {
+    throw new Error(`Unsupported REMUSE_OPENDAW_PROVIDER "${mode}". Expected "mock" or "local-session".`);
+  }
+
+  return mode;
+}
+
+function openDawRendererModeFromEnv(env: ProviderEnvironment): OpenDawRendererMode {
+  const mode = env.REMUSE_OPENDAW_RENDERER ?? "preview";
+  if (mode !== "preview" && mode !== "fluidsynth") {
+    throw new Error(`Unsupported REMUSE_OPENDAW_RENDERER "${mode}". Expected "preview" or "fluidsynth".`);
+  }
+
+  return mode;
+}
+
 function requiredEnv(env: ProviderEnvironment, name: string): string {
   const value = env[name];
   if (value === undefined || value.trim().length === 0) {
@@ -54,6 +75,15 @@ function requiredEnv(env: ProviderEnvironment, name: string): string {
   }
 
   return value;
+}
+
+function requiredOpenDawRendererEnv(env: ProviderEnvironment, name: string): string {
+  const value = env[name];
+  if (value === undefined || value.trim().length === 0) {
+    throw new Error(`REMUSE_OPENDAW_RENDERER=fluidsynth requires ${name}.`);
+  }
+
+  return value.trim();
 }
 
 function quantizationFromEnv(value: string | undefined): MidiConversionJobRequest["quantization"] | undefined {
@@ -126,6 +156,35 @@ function withConfiguredMidiProvider(
   };
 }
 
+function withConfiguredOpenDawProvider(
+  providers: PipelineProviders,
+  artifactStore: FileArtifactStore,
+  env: ProviderEnvironment
+): PipelineProviders {
+  const opendawMode = openDawProviderModeFromEnv(env);
+  if (opendawMode === "mock") {
+    return providers;
+  }
+
+  const rendererMode = openDawRendererModeFromEnv(env);
+  const renderBackend: LocalOpenDawRenderBackendOptions =
+    rendererMode === "fluidsynth"
+      ? {
+          mode: "fluidsynth",
+          soundfontPath: requiredOpenDawRendererEnv(env, "REMUSE_FLUIDSYNTH_SOUNDFONT"),
+          ...(env.REMUSE_FLUIDSYNTH_COMMAND === undefined || env.REMUSE_FLUIDSYNTH_COMMAND.trim().length === 0
+            ? {}
+            : { command: env.REMUSE_FLUIDSYNTH_COMMAND.trim() }),
+          timeoutMs: numberFromEnv(env.REMUSE_FLUIDSYNTH_TIMEOUT_MS, 5 * 60 * 1000)
+        }
+      : { mode: "preview" };
+
+  return {
+    ...providers,
+    opendaw: new LocalOpenDawSessionProvider({ artifactStore, renderBackend })
+  };
+}
+
 export function createProvidersFromEnvironment(input: CreateProvidersFromEnvironmentInput): PipelineProviders {
   const env = input.env ?? process.env;
   const mode = providerModeFromEnv(env);
@@ -136,7 +195,11 @@ export function createProvidersFromEnvironment(input: CreateProvidersFromEnviron
       throw new Error("REMUSE_MIDI_PROVIDER=basic-pitch requires local file-backed stems. Use REMUSE_PROVIDER=mvsep or npm run demo:basic-pitch.");
     }
 
-    return withConfiguredMidiProvider(createMockProviders(), input.artifactStore, env);
+    return withConfiguredOpenDawProvider(
+      withConfiguredMidiProvider(createMockProviders(), input.artifactStore, env),
+      input.artifactStore,
+      env
+    );
   }
 
   const apiToken = env.MVSEP_API_TOKEN;
@@ -149,15 +212,19 @@ export function createProvidersFromEnvironment(input: CreateProvidersFromEnviron
     throw new Error("The MVSEP adapter currently supports only MVSEP_OUTPUT_FORMAT=1 (WAV 16-bit).");
   }
 
-  return withConfiguredMidiProvider(
-    createMvsepProviders({
-      artifactStore: input.artifactStore,
-      apiToken,
-      ...(env.MVSEP_BASE_URL === undefined ? {} : { baseUrl: env.MVSEP_BASE_URL }),
-      outputFormat,
-      pollIntervalMs: numberFromEnv(env.MVSEP_POLL_INTERVAL_MS, 10_000),
-      maxPollAttempts: numberFromEnv(env.MVSEP_MAX_POLL_ATTEMPTS, 120)
-    }),
+  return withConfiguredOpenDawProvider(
+    withConfiguredMidiProvider(
+      createMvsepProviders({
+        artifactStore: input.artifactStore,
+        apiToken,
+        ...(env.MVSEP_BASE_URL === undefined ? {} : { baseUrl: env.MVSEP_BASE_URL }),
+        outputFormat,
+        pollIntervalMs: numberFromEnv(env.MVSEP_POLL_INTERVAL_MS, 10_000),
+        maxPollAttempts: numberFromEnv(env.MVSEP_MAX_POLL_ATTEMPTS, 120)
+      }),
+      input.artifactStore,
+      env
+    ),
     input.artifactStore,
     env
   );

@@ -2,7 +2,7 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { createHash } from "node:crypto";
-import type { AudioArtifact, InstrumentLabel, MidiArtifact } from "../pipeline/types.ts";
+import type { AudioArtifact, InstrumentLabel, MidiArtifact, OpenDawSessionArtifact } from "../pipeline/types.ts";
 import { assertSupportedWorkflowWav, parseWavFormat } from "../audio/wav.ts";
 
 export type FileArtifactStoreOptions = {
@@ -43,6 +43,23 @@ export type StoreMidiArtifactInput = {
 
 export type StoredMidiArtifact = {
   artifact: MidiArtifact;
+  sha256: string;
+  path: string;
+};
+
+export type StoreOpenDawSessionArtifactInput = {
+  jobId: string;
+  stage: string;
+  filename: string;
+  bytes: Buffer;
+  sourceArtifactIds: string[];
+  sessionId: string;
+  trackCount: number;
+  metadata?: Record<string, string | number | boolean>;
+};
+
+export type StoredOpenDawSessionArtifact = {
+  artifact: OpenDawSessionArtifact;
   sha256: string;
   path: string;
 };
@@ -172,6 +189,37 @@ export class FileArtifactStore {
         normalizedInstrument: input.instrument.canonicalName
       },
       instrument: input.instrument
+    };
+
+    return {
+      artifact,
+      sha256: digest,
+      path: artifactPath
+    };
+  }
+
+  async saveOpenDawSessionArtifact(input: StoreOpenDawSessionArtifactInput): Promise<StoredOpenDawSessionArtifact> {
+    const artifactDir = join(this.rootDir, input.jobId, safeFilename(input.stage, "opendaw-session"));
+    await mkdir(artifactDir, { recursive: true });
+
+    const storedFilename = safeFilename(input.filename, "session.opendaw.json").replace(/\.opendaw(?:\.json)?$/i, "") + ".opendaw.json";
+    const artifactPath = join(artifactDir, storedFilename);
+    await writeFile(artifactPath, input.bytes);
+
+    const digest = sha256(input.bytes);
+    const artifact: OpenDawSessionArtifact = {
+      id: `${input.jobId}-opendaw-session-${digest.slice(0, 12)}`,
+      kind: "opendaw-session",
+      uri: pathToFileURL(artifactPath).href,
+      filename: storedFilename,
+      sourceArtifactIds: input.sourceArtifactIds,
+      metadata: {
+        ...(input.metadata ?? {}),
+        sha256: digest,
+        byteLength: input.bytes.length
+      },
+      sessionId: input.sessionId,
+      trackCount: input.trackCount
     };
 
     return {

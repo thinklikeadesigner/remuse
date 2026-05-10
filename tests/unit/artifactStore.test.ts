@@ -59,3 +59,29 @@ test("FileArtifactStore persists MIDI artifacts with normalized instrument metad
   assert.equal(stored.artifact.metadata.byteLength, midiBytes.length);
   assert.deepEqual(await readFile(fileURLToPath(stored.artifact.uri)), midiBytes);
 });
+
+test("FileArtifactStore persists OpenDAW session artifacts", async () => {
+  const rootDir = await mkdtemp(join(tmpdir(), "remuse-opendaw-artifacts-"));
+  const store = new FileArtifactStore({ rootDir });
+  const sessionBytes = Buffer.from(JSON.stringify({ schemaVersion: "remuse.opendaw-session.v1", tracks: [] }), "utf8");
+  const stored = await store.saveOpenDawSessionArtifact({
+    jobId: "job-opendaw",
+    stage: "opendaw-session",
+    filename: "Job OpenDAW.OPENDaw.JSON",
+    bytes: sessionBytes,
+    sourceArtifactIds: ["midi-1"],
+    sessionId: "session-1",
+    trackCount: 2,
+    metadata: {
+      provider: "local-opendaw-session"
+    }
+  });
+
+  assert.equal(stored.artifact.kind, "opendaw-session");
+  assert.equal(stored.artifact.filename, "job-opendaw.opendaw.json");
+  assert.equal(stored.artifact.sessionId, "session-1");
+  assert.equal(stored.artifact.trackCount, 2);
+  assert.equal(stored.artifact.metadata.provider, "local-opendaw-session");
+  assert.equal(stored.artifact.metadata.byteLength, sessionBytes.length);
+  assert.deepEqual(await readFile(fileURLToPath(stored.artifact.uri)), sessionBytes);
+});

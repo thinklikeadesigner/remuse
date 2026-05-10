@@ -99,10 +99,27 @@ export type MidiConversionResult = {
   midiFiles: MidiArtifact[];
 };
 
+export type SampleLibraryAssignment = {
+  key: string;
+  displayName: string;
+  family: InstrumentFamily;
+  engine: "opendaw-soundfont" | "general-midi-fallback";
+  midiProgram?: number;
+  soundfontId?: string;
+  presetIndex?: number;
+  presetName?: string;
+  isPercussion?: boolean;
+  fallbackReason?: string;
+};
+
 export type OpenDawTrackPlan = {
+  trackId: string;
+  trackIndex: number;
   trackName: string;
   midiFile: MidiArtifact;
   sampleLibraryKey: string;
+  sampleLibrary: SampleLibraryAssignment;
+  sampleLibraryLoaded: boolean;
 };
 
 export type OpenDawSessionResult = {

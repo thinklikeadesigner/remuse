@@ -12,6 +12,7 @@ The repo also contains high-intensity multi-agent sprint configuration. It is bu
 - `src/storage/` - file-backed artifact storage.
 - `src/providers/mock/` - deterministic mock providers for the full audio-to-MIDI/OpenDAW flow.
 - `src/providers/midi/` - Basic Pitch and provider-neutral HTTP MIDI conversion adapters.
+- `src/providers/opendaw/` - file-backed OpenDAW session assembly, sample-library mapping, and preview bounce adapter.
 - `src/demo/runMockPipeline.ts` - smoke demo for the mock pipeline.
 - `tests/unit/` - initial unit test scaffold.
 - `config/audio-midi-sprint.yaml` - source of truth for the audio application agent roster.
@@ -64,6 +65,26 @@ For full job-server testing, combine Basic Pitch with file-backed upstream stems
 REMUSE_PROVIDER=mvsep MVSEP_API_TOKEN=<token> REMUSE_MIDI_PROVIDER=basic-pitch npm run server:mock
 ```
 
+The job server uses `REMUSE_OPENDAW_PROVIDER=local-session` by default. This writes a reproducible `.opendaw.json` session artifact, maps every MIDI track to a sample-library assignment, and renders a valid stereo WAV PCM 16-bit, 44.1 kHz preview bounce. Set `REMUSE_OPENDAW_PROVIDER=mock` to return to the older in-memory mock OpenDAW path.
+
+Use FluidSynth as the functioning MIDI render backend by installing `fluidsynth`, downloading a General MIDI `.sf2` SoundFont, and starting the server with:
+
+```bash
+REMUSE_OPENDAW_RENDERER=fluidsynth \
+REMUSE_FLUIDSYNTH_SOUNDFONT=/absolute/path/to/soundfont.sf2 \
+npm run server:mock
+```
+
+Optionally set `REMUSE_FLUIDSYNTH_COMMAND=/path/to/fluidsynth` if the binary is not on `PATH`.
+
+Run the headless browser OpenDAW proof harness:
+
+```bash
+npm run opendaw:browser-spike -- --browser-executable "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
+```
+
+The harness creates a real OpenDAW project, creates soundfont-backed MIDI tracks, imports MIDI notes, applies sample-library presets, serializes the native OpenDAW project, and writes a 16-bit/44.1 kHz stereo WAV proof bounce under `var/opendaw-browser-spike/<timestamp>/session/`.
+
 The backend stores local runtime artifacts under `var/remuse/` by default. Submit a WAV PCM 16-bit or 24-bit, 44.1 kHz file with `POST /v1/jobs`, then poll `GET /v1/jobs/<job-id>` and fetch the completed result with `GET /v1/jobs/<job-id>/result`. The `GET /review/<job-id>` page shows live job progress while the pipeline is active. The local server opens that page in the OS default browser as soon as a job is submitted, so you can watch progress from the beginning and then play review clips, label useful stems, or discard unusable/duplicate stems if manual review is needed. Set `REMUSE_AUTO_OPEN_REVIEW=0` to disable auto-open, or set `REMUSE_PUBLIC_BASE_URL` if the browser should use a non-default host/port.
 
 Type-check and test:
@@ -85,6 +106,7 @@ Phase 0 artifacts:
 - [Phase 2 audio processing integrations](docs/architecture/phase-2-audio-processing-integrations.md)
 - [Phase 3 instrument label normalization](docs/architecture/phase-3-instrument-label-normalization.md)
 - [Phase 4 MIDI conversion](docs/architecture/phase-4-midi-conversion.md)
+- [Phase 5 OpenDAW session assembly](docs/architecture/phase-5-opendaw-session-assembly.md)
 
 ## Audio Application Agents
 

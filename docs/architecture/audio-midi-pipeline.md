@@ -30,6 +30,7 @@ input WAV PCM 16-bit or 24-bit / 44.1 kHz
 - `src/storage/**` persists validated input artifacts with checksum metadata.
 - `src/providers/mock/**` implements deterministic mock providers for local development and test scaffolding.
 - `src/providers/midi/**` implements Spotify Basic Pitch and provider-neutral HTTP MIDI conversion adapters.
+- `src/providers/opendaw/**` implements file-backed OpenDAW session assembly, sample-library mapping, and preview bounce export.
 - Real providers should match the mock providers' behavior at the interface boundary.
 
 ## Provider Interfaces
@@ -40,7 +41,7 @@ input WAV PCM 16-bit or 24-bit / 44.1 kHz
 - `MidiConversionProvider`: labeled stems to MIDI files with instrument names preserved.
 - `OpenDawProvider`: blank session creation, MIDI import, sample library assignment, and stereo bounce.
 
-The Phase 0 provider contract is captured in `contracts/external-audio-services.openapi.yaml` and summarized in `docs/architecture/phase-0-provider-contracts.md`. Phase 3 instrument labeling is captured in `docs/architecture/phase-3-instrument-label-normalization.md`. Phase 4 MIDI conversion is captured in `docs/architecture/phase-4-midi-conversion.md`.
+The Phase 0 provider contract is captured in `contracts/external-audio-services.openapi.yaml` and summarized in `docs/architecture/phase-0-provider-contracts.md`. Phase 3 instrument labeling is captured in `docs/architecture/phase-3-instrument-label-normalization.md`. Phase 4 MIDI conversion is captured in `docs/architecture/phase-4-midi-conversion.md`. Phase 5 OpenDAW session assembly is captured in `docs/architecture/phase-5-opendaw-session-assembly.md`.
 
 ## OpenDAW Integration Notes
 
@@ -51,4 +52,4 @@ Phase 0 findings are captured in `docs/architecture/opendaw-integration-spike.md
 - Assign a sample playback device or library from an instrument label.
 - Render or export a stereo WAV PCM 16-bit, 44.1 kHz bounce.
 
-If the SDK cannot render headlessly in Node, the adapter should expose that limitation and provide a browser-worker or deterministic mock/export fallback for the demo path.
+The Phase 5 local-session provider exposes that limitation directly: it creates a reproducible `.opendaw.json` session plan, records track/sample-library assignments, and exports a deterministic stereo WAV preview bounce. A future SDK-backed renderer can replace the preview bounce internals without changing the pipeline provider boundary.

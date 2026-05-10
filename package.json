@@ -9,6 +9,7 @@
     "check": "tsc -p tsconfig.json --noEmit",
     "demo:basic-pitch": "node --experimental-strip-types src/demo/runBasicPitchMidiSmoke.ts",
     "demo:mock": "node --experimental-strip-types src/demo/runMockPipeline.ts",
+    "opendaw:browser-spike": "node scripts/opendawBrowserHarness.mjs",
     "server:mock": "node --experimental-strip-types src/server/index.ts",
     "test": "node --test --experimental-strip-types tests/**/*.test.ts"
   },
@@ -16,7 +17,16 @@
     "node": ">=22.0.0"
   },
   "devDependencies": {
+    "@playwright/test": "^1.59.1",
     "@types/node": "^22.15.0",
+    "esbuild": "0.28.0",
     "typescript": "^5.8.3"
+  },
+  "dependencies": {
+    "@opendaw/lib-midi": "^0.0.63",
+    "@opendaw/studio-adapters": "^0.0.106",
+    "@opendaw/studio-boxes": "^0.0.88",
+    "@opendaw/studio-core": "^0.0.137",
+    "@opendaw/studio-sdk": "^0.0.139"
   }
 }

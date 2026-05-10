@@ -6,7 +6,7 @@ import test from "node:test";
 import { createProvidersFromEnvironment } from "../../src/providers/index.ts";
 import { FileArtifactStore } from "../../src/storage/fileArtifactStore.ts";
 
-test("createProvidersFromEnvironment defaults to mock providers", async () => {
+test("createProvidersFromEnvironment defaults to mock audio providers and local OpenDAW provider", async () => {
   const rootDir = await mkdtemp(join(tmpdir(), "remuse-provider-factory-"));
   const providers = createProvidersFromEnvironment({
     artifactStore: new FileArtifactStore({ rootDir }),
@@ -14,6 +14,7 @@ test("createProvidersFromEnvironment defaults to mock providers", async () => {
   });
 
   assert.equal(providers.dereverb.constructor.name, "MockDereverbProvider");
+  assert.equal(providers.opendaw.constructor.name, "LocalOpenDawSessionProvider");
 });
 
 test("createProvidersFromEnvironment requires MVSEP token for mvsep mode", async () => {
@@ -60,6 +61,19 @@ test("createProvidersFromEnvironment can replace only MIDI conversion with Basic
 
   assert.equal(providers.dereverb.constructor.name, "MvsepDereverbProvider");
   assert.equal(providers.midiConversion.constructor.name, "BasicPitchMidiConversionProvider");
+  assert.equal(providers.opendaw.constructor.name, "LocalOpenDawSessionProvider");
+});
+
+test("createProvidersFromEnvironment can use mock OpenDAW provider", async () => {
+  const rootDir = await mkdtemp(join(tmpdir(), "remuse-provider-factory-"));
+  const providers = createProvidersFromEnvironment({
+    artifactStore: new FileArtifactStore({ rootDir }),
+    env: {
+      REMUSE_OPENDAW_PROVIDER: "mock"
+    }
+  });
+
+  assert.equal(providers.opendaw.constructor.name, "MockOpenDawProvider");
 });
 
 test("createProvidersFromEnvironment rejects Basic Pitch with pure mock upstream artifacts", async () => {
@@ -104,4 +118,57 @@ test("createProvidersFromEnvironment validates Basic Pitch model serialization",
       }),
     /BASIC_PITCH_MODEL_SERIALIZATION/
   );
+});
+
+test("createProvidersFromEnvironment validates OpenDAW provider mode", async () => {
+  const rootDir = await mkdtemp(join(tmpdir(), "remuse-provider-factory-"));
+
+  assert.throws(
+    () =>
+      createProvidersFromEnvironment({
+        artifactStore: new FileArtifactStore({ rootDir }),
+        env: { REMUSE_OPENDAW_PROVIDER: "surprise" }
+      }),
+    /REMUSE_OPENDAW_PROVIDER/
+  );
+});
+
+test("createProvidersFromEnvironment validates OpenDAW renderer mode", async () => {
+  const rootDir = await mkdtemp(join(tmpdir(), "remuse-provider-factory-"));
+
+  assert.throws(
+    () =>
+      createProvidersFromEnvironment({
+        artifactStore: new FileArtifactStore({ rootDir }),
+        env: { REMUSE_OPENDAW_RENDERER: "surprise" }
+      }),
+    /REMUSE_OPENDAW_RENDERER/
+  );
+});
+
+test("createProvidersFromEnvironment requires a SoundFont for FluidSynth rendering", async () => {
+  const rootDir = await mkdtemp(join(tmpdir(), "remuse-provider-factory-"));
+
+  assert.throws(
+    () =>
+      createProvidersFromEnvironment({
+        artifactStore: new FileArtifactStore({ rootDir }),
+        env: { REMUSE_OPENDAW_RENDERER: "fluidsynth" }
+      }),
+    /REMUSE_FLUIDSYNTH_SOUNDFONT/
+  );
+});
+
+test("createProvidersFromEnvironment can configure FluidSynth rendering", async () => {
+  const rootDir = await mkdtemp(join(tmpdir(), "remuse-provider-factory-"));
+  const providers = createProvidersFromEnvironment({
+    artifactStore: new FileArtifactStore({ rootDir }),
+    env: {
+      REMUSE_OPENDAW_RENDERER: "fluidsynth",
+      REMUSE_FLUIDSYNTH_COMMAND: "fluidsynth-test",
+      REMUSE_FLUIDSYNTH_SOUNDFONT: "/tmp/test.sf2"
+    }
+  });
+
+  assert.equal(providers.opendaw.constructor.name, "LocalOpenDawSessionProvider");
 });
