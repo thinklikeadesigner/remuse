@@ -142,11 +142,11 @@ export class MvsepInstrumentStemSeparationProvider implements InstrumentStemSepa
   }
 
   async separateInstruments(
-    dryOnly: Parameters<InstrumentStemSeparationProvider["separateInstruments"]>[0],
+    sourceAudio: Parameters<InstrumentStemSeparationProvider["separateInstruments"]>[0],
     context: ProviderContext
   ): Promise<InstrumentStem[]> {
     const created = await this.client.createSeparation({
-      inputAudio: dryOnly,
+      inputAudio: sourceAudio,
       sepType: MVSEP_INSTRUMENT_STEM_SEP_TYPE,
       outputFormat: this.outputFormat
     });
@@ -181,9 +181,9 @@ export class MvsepInstrumentStemSeparationProvider implements InstrumentStemSepa
         jobId: context.jobId,
         stage: "instrument-stems",
         kind: "instrument-stem",
-        filename: `${baseName(dryOnly.filename)}.stem-${String(index + 1).padStart(2, "0")}.${normalizeInstrumentName(label.canonicalName)}.wav`,
+        filename: `${baseName(sourceAudio.filename)}.stem-${String(index + 1).padStart(2, "0")}.${normalizeInstrumentName(label.canonicalName)}.wav`,
         url: file.url,
-        sourceArtifactIds: [dryOnly.id],
+        sourceArtifactIds: [sourceAudio.id],
         metadata: {
           ...providerFileMetadata(file, created.hash),
           stemIndex: index,

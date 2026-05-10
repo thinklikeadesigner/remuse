@@ -5,16 +5,16 @@ const mockStemNames = ["drums", "bass", "guitar", "piano"];
 
 export class MockInstrumentStemSeparationProvider implements InstrumentStemSeparationProvider {
   async separateInstruments(
-    dryOnly: Parameters<InstrumentStemSeparationProvider["separateInstruments"]>[0]
+    sourceAudio: Parameters<InstrumentStemSeparationProvider["separateInstruments"]>[0]
   ): Promise<InstrumentStem[]> {
-    const baseName = dryOnly.filename.replace(/\.wav$/i, "");
+    const baseName = sourceAudio.filename.replace(/\.wav$/i, "");
 
     return mockStemNames.map((stemName, index) => ({
       stem: createMockAudioArtifact({
         kind: "instrument-stem",
         filename: `${baseName}.stem-${String(index + 1).padStart(2, "0")}.${stemName}.wav`,
-        sourceArtifactIds: [dryOnly.id],
-        durationSeconds: dryOnly.durationSeconds,
+        sourceArtifactIds: [sourceAudio.id],
+        durationSeconds: sourceAudio.durationSeconds,
         metadata: {
           provider: "mock-instrument-stem-separation",
           stemIndex: index,

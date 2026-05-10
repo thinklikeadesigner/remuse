@@ -70,7 +70,7 @@ export type DereverbJobResult = {
 
 export type StemSeparationJobRequest = {
   remuseJobId: string;
-  dryOnlyAudio: ProviderAudioArtifactRef;
+  sourceAudio: ProviderAudioArtifactRef;
   outputFormat: ProviderAudioFormat;
   maxStems?: number;
   callbackUrl?: string;

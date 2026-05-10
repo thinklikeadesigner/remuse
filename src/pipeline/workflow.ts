@@ -1,5 +1,4 @@
 import type {
-  DereverbResult,
   HumanInstrumentReviewRequest,
   InstrumentLabel,
   InstrumentStem,
@@ -96,25 +95,6 @@ function renderTargetForState(state: PipelineManualReviewState): OpenDawRenderTa
   };
 }
 
-function bypassDereverb(inputAudio: PipelineJobInput["inputAudio"]): DereverbResult {
-  return {
-    dryOnly: {
-      ...inputAudio,
-      id: `${inputAudio.id}-dereverb-bypass-dry`,
-      kind: "dry-audio",
-      sourceArtifactIds: [inputAudio.id],
-      metadata: {
-        ...inputAudio.metadata,
-        provider: "remuse-dereverb-bypass",
-        providerNative: false,
-        bypassed: true,
-        sourceArtifactId: inputAudio.id,
-        sourceKind: inputAudio.kind
-      }
-    }
-  };
-}
-
 async function finishPipelineFromLabeledStems(
   state: PipelineManualReviewState,
   providers: PipelineProviders,
@@ -142,7 +122,7 @@ async function finishPipelineFromLabeledStems(
   return {
     jobId: state.jobId,
     inputAudio: state.inputAudio,
-    dereverb: state.dereverb,
+    ...(state.dereverb === undefined ? {} : { dereverb: state.dereverb }),
     instrumentStems: state.instrumentStems,
     ...(manualReviews === undefined || manualReviews.length === 0 ? {} : { manualReviews }),
     midi,
@@ -176,13 +156,12 @@ export async function runPipeline(
   await runtime.emit({
     step: "de-reverb",
     status: "skipped",
-    message: "De-reverb bypassed; using original input for stem separation.",
+    message: "De-reverb bypassed; sending original input directly to stem separation.",
     at: nowIso()
   });
-  const dereverb = bypassDereverb(input.inputAudio);
 
   await runtime.start("instrument-stem-separation", "Separating original input audio into instrument stems.");
-  const separatedStems = await providers.instrumentStemSeparation.separateInstruments(dereverb.dryOnly, runtime.context);
+  const separatedStems = await providers.instrumentStemSeparation.separateInstruments(input.inputAudio, runtime.context);
   await runtime.succeed("instrument-stem-separation", `Created ${separatedStems.length} instrument stems.`);
 
   await runtime.start("instrument-label-normalization", "Normalizing provider instrument labels.");
@@ -206,7 +185,6 @@ export async function runPipeline(
       {
         jobId: input.jobId,
         inputAudio: input.inputAudio,
-        dereverb,
         instrumentStems,
         events: runtime.events
       },
@@ -218,7 +196,6 @@ export async function runPipeline(
     {
       jobId: input.jobId,
       inputAudio: input.inputAudio,
-      dereverb,
       instrumentStems,
       events: runtime.events
     },

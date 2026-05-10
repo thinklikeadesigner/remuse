@@ -461,6 +461,64 @@
         transition: width 180ms ease;
       }
 
+      .job-steps {
+        list-style: none;
+        display: grid;
+        gap: 8px;
+        margin: 0;
+        padding: 0;
+      }
+
+      .job-step {
+        display: grid;
+        grid-template-columns: 12px minmax(0, 1fr) auto;
+        gap: 10px;
+        align-items: center;
+        min-height: 28px;
+        color: var(--muted);
+        font-size: 12px;
+      }
+
+      .job-step-dot {
+        width: 10px;
+        height: 10px;
+        border: 1px solid var(--line);
+        background: #141414;
+      }
+
+      .job-step-name {
+        color: var(--text);
+        overflow-wrap: anywhere;
+      }
+
+      .job-step-status {
+        font-variant-numeric: tabular-nums;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: var(--muted);
+      }
+
+      .job-step.is-succeeded .job-step-dot {
+        border-color: var(--green);
+        background: var(--green);
+      }
+
+      .job-step.is-running .job-step-dot,
+      .job-step.is-awaiting-input .job-step-dot {
+        border-color: var(--gold);
+        background: var(--gold);
+      }
+
+      .job-step.is-skipped .job-step-dot {
+        border-color: #777;
+        background: #333;
+      }
+
+      .job-step.is-failed .job-step-dot {
+        border-color: var(--red);
+        background: var(--red);
+      }
+
       .job-links {
         display: flex;
         flex-wrap: wrap;
@@ -733,6 +791,7 @@
           <div class="job-progress-track" aria-hidden="true">
             <div class="job-progress-fill" id="jobProgressFill"></div>
           </div>
+          <ol class="job-steps" id="jobSteps" aria-label="Workflow steps"></ol>
           <div class="job-links">
             <a id="reviewLink" href="#" hidden>Open job progress</a>
             <a id="resultLink" href="#" hidden>Open result JSON</a>
@@ -832,6 +891,7 @@
       const jobMessage = document.querySelector("#jobMessage");
       const jobPercent = document.querySelector("#jobPercent");
       const jobProgressFill = document.querySelector("#jobProgressFill");
+      const jobSteps = document.querySelector("#jobSteps");
       const reviewLink = document.querySelector("#reviewLink");
       const resultLink = document.querySelector("#resultLink");
       const diagnosticTracks = document.querySelector("#diagnosticTracks");
@@ -901,6 +961,30 @@
         jobProgressFill.style.width = `${percent}%`;
       }
 
+      function statusLabel(status) {
+        if (status === "awaiting-input") return "waiting";
+        return status || "pending";
+      }
+
+      function renderJobSteps(record) {
+        const latestByStep = new Map();
+        for (const event of record?.events || []) {
+          latestByStep.set(event.step, event);
+        }
+
+        jobSteps.innerHTML = workflowSteps
+          .map((step) => {
+            const event = latestByStep.get(step);
+            const status = event?.status || "pending";
+            return `<li class="job-step is-${escapeHtml(status)}">
+              <span class="job-step-dot" aria-hidden="true"></span>
+              <span class="job-step-name">${escapeHtml(titleCaseStep(step))}</span>
+              <span class="job-step-status">${escapeHtml(statusLabel(status))}</span>
+            </li>`;
+          })
+          .join("");
+      }
+
       function clearPollTimer() {
         if (pollTimer !== null) {
           window.clearTimeout(pollTimer);
@@ -957,6 +1041,7 @@
       }
 
       function renderJobRecord(record) {
+        renderJobSteps(record);
         const percent = progressForJob(record);
         const latestEvent = (record.events || []).at(-1);
         const latestMessage = latestEvent?.message || `Job is ${record.status}.`;
@@ -1028,6 +1113,7 @@
         currentJobId = null;
         reviewLink.hidden = true;
         resultLink.hidden = true;
+        renderJobSteps({ events: [] });
         renderDiagnosticTracks(null, []);
         afterAudio.removeAttribute("src");
         afterAudio.removeAttribute("data-job-id");
@@ -1129,6 +1215,7 @@
 
       bindJobUpload();
       bindAudioPicker("#afterFile", "#afterAudio", "#afterLabel");
+      renderJobSteps({ events: [] });
       updateUi();
     </script>
   </body>

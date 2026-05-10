@@ -51,7 +51,7 @@ Acceptance criteria:
 
 ### Instrument Stem Separation
 
-Input: dry-only audio artifact.
+Input: source audio artifact. When de-reverb is active this is the dry-only audio artifact; while de-reverb is bypassed this is the original uploaded input audio artifact.
 
 Output:
 

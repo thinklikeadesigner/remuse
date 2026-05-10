@@ -11,8 +11,8 @@ The initial implementation is intentionally provider-neutral. Every external ser
 ```text
 input WAV PCM 16-bit or 24-bit / 44.1 kHz
 -> validate format
--> de-reverb split
--> dry-only instrument stem separation
+-> de-reverb split, currently bypassed
+-> original input instrument stem separation
 -> instrument label normalization and optional human review
 -> stem-to-MIDI conversion
 -> OpenDAW blank session creation
@@ -35,8 +35,8 @@ input WAV PCM 16-bit or 24-bit / 44.1 kHz
 
 ## Provider Interfaces
 
-- `DereverbProvider`: input WAV to dry-only and reverb-only WAV tracks.
-- `InstrumentStemSeparationProvider`: dry-only WAV to individual instrument stems.
+- `DereverbProvider`: input WAV to dry-only and reverb-only WAV tracks when de-reverb is active.
+- `InstrumentStemSeparationProvider`: source WAV to individual instrument stems. While de-reverb is bypassed, the source is the original uploaded input.
 - `InstrumentIdentificationProvider`: provider-native labels and filenames to normalized labels; non-specific labels pause for human review.
 - `MidiConversionProvider`: labeled stems to MIDI files with instrument names preserved.
 - `OpenDawProvider`: blank session creation, MIDI import, sample library assignment, and stereo bounce.

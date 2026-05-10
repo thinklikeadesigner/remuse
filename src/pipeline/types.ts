@@ -103,6 +103,8 @@ export type DereverbResult = {
   reverbOnly?: AudioArtifact & { kind: "reverb-audio" };
 };
 
+export type InstrumentStemSeparationInput = AudioArtifact & { kind: "input-audio" | "dry-audio" };
+
 export type MidiConversionResult = {
   midiFiles: MidiArtifact[];
 };
@@ -186,7 +188,7 @@ export type PipelineJobInput = {
 export type PipelineJobResult = {
   jobId: string;
   inputAudio: AudioArtifact & { kind: "input-audio" };
-  dereverb: DereverbResult;
+  dereverb?: DereverbResult;
   instrumentStems: InstrumentStem[];
   manualReviews?: HumanInstrumentReviewRequest[];
   midi: MidiConversionResult;
@@ -198,7 +200,7 @@ export type PipelineJobResult = {
 export type PipelineManualReviewState = {
   jobId: string;
   inputAudio: AudioArtifact & { kind: "input-audio" };
-  dereverb: DereverbResult;
+  dereverb?: DereverbResult;
   instrumentStems: InstrumentStem[];
   events: PipelineStepEvent[];
 };
@@ -220,7 +222,7 @@ export interface DereverbProvider {
 
 export interface InstrumentStemSeparationProvider {
   separateInstruments(
-    dryOnly: AudioArtifact & { kind: "dry-audio" },
+    sourceAudio: InstrumentStemSeparationInput,
     context: ProviderContext
   ): Promise<InstrumentStem[]>;
 }

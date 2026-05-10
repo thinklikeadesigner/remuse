@@ -279,11 +279,11 @@ components:
           $ref: "#/components/schemas/ProcessingError"
     StemSeparationJobRequest:
       type: object
-      required: [remuseJobId, dryOnlyAudio, outputFormat]
+      required: [remuseJobId, sourceAudio, outputFormat]
       properties:
         remuseJobId:
           type: string
-        dryOnlyAudio:
+        sourceAudio:
           $ref: "#/components/schemas/AudioArtifactRef"
         outputFormat:
           $ref: "#/components/schemas/AudioFormat"
