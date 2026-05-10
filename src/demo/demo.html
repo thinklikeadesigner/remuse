@@ -279,7 +279,7 @@
 
       .curve-meter {
         display: grid;
-        grid-template-columns: 20% 60% 20%;
+        grid-template-columns: 26% 48% 26%;
         border: 1px solid var(--line);
         background: #101010;
       }
@@ -295,7 +295,12 @@
         border-right: 1px solid var(--line);
       }
 
+      .curve-segment:first-child {
+        padding-right: 14px;
+      }
+
       .curve-segment:last-child {
+        padding-left: 14px;
         border-right: 0;
       }
 
