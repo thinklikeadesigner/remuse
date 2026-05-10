@@ -20,7 +20,7 @@ ReMuse is a local TypeScript application for turning an uploaded WAV file into a
 
 <img width="1246" height="492" alt="image" src="https://github.com/user-attachments/assets/afab7212-7a04-474c-9794-76fd2c4097cc" />
 
-
+<br>
 
 The current production-test path is:
 
