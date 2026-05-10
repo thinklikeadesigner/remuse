@@ -64,6 +64,71 @@ test("createProvidersFromEnvironment can replace only MIDI conversion with Basic
   assert.equal(providers.opendaw.constructor.name, "LocalOpenDawSessionProvider");
 });
 
+test("createProvidersFromEnvironment can replace only stem separation with LALAL.AI provider", async () => {
+  const rootDir = await mkdtemp(join(tmpdir(), "remuse-provider-factory-"));
+  const providers = createProvidersFromEnvironment({
+    artifactStore: new FileArtifactStore({ rootDir }),
+    env: {
+      REMUSE_STEM_PROVIDER: "lalal",
+      LALAL_LICENSE_KEY: "lalal-license",
+      LALAL_STEM_LIST: "vocals,drums,bass,piano,electric-guitar,acoustic_guitar",
+      LALAL_EXTRACTION_LEVEL: "clear_cut"
+    }
+  });
+
+  assert.equal(providers.dereverb.constructor.name, "MockDereverbProvider");
+  assert.equal(providers.instrumentStemSeparation.constructor.name, "LalalInstrumentStemSeparationProvider");
+  assert.equal(providers.instrumentIdentification.constructor.name, "ProviderNativeInstrumentIdentificationProvider");
+  assert.equal(providers.opendaw.constructor.name, "LocalOpenDawSessionProvider");
+});
+
+test("createProvidersFromEnvironment requires LALAL.AI license for LALAL stem provider", async () => {
+  const rootDir = await mkdtemp(join(tmpdir(), "remuse-provider-factory-"));
+
+  assert.throws(
+    () =>
+      createProvidersFromEnvironment({
+        artifactStore: new FileArtifactStore({ rootDir }),
+        env: { REMUSE_STEM_PROVIDER: "lalal" }
+      }),
+    /LALAL_LICENSE_KEY/
+  );
+});
+
+test("createProvidersFromEnvironment rejects incompatible LALAL.AI splitter and stem combinations", async () => {
+  const rootDir = await mkdtemp(join(tmpdir(), "remuse-provider-factory-"));
+
+  assert.throws(
+    () =>
+      createProvidersFromEnvironment({
+        artifactStore: new FileArtifactStore({ rootDir }),
+        env: {
+          REMUSE_STEM_PROVIDER: "lalal",
+          LALAL_LICENSE_KEY: "lalal-license",
+          LALAL_SPLITTER: "andromeda",
+          LALAL_STEM_LIST: "vocals,piano"
+        }
+      }),
+    /andromeda does not support the piano/
+  );
+});
+
+test("createProvidersFromEnvironment allows Basic Pitch when LALAL.AI supplies file-backed stems", async () => {
+  const rootDir = await mkdtemp(join(tmpdir(), "remuse-provider-factory-"));
+  const providers = createProvidersFromEnvironment({
+    artifactStore: new FileArtifactStore({ rootDir }),
+    env: {
+      REMUSE_STEM_PROVIDER: "lalal",
+      LALAL_LICENSE_KEY: "lalal-license",
+      REMUSE_MIDI_PROVIDER: "basic-pitch",
+      BASIC_PITCH_COMMAND: "basic-pitch-test"
+    }
+  });
+
+  assert.equal(providers.instrumentStemSeparation.constructor.name, "LalalInstrumentStemSeparationProvider");
+  assert.equal(providers.midiConversion.constructor.name, "BasicPitchMidiConversionProvider");
+});
+
 test("createProvidersFromEnvironment can use mock OpenDAW provider", async () => {
   const rootDir = await mkdtemp(join(tmpdir(), "remuse-provider-factory-"));
   const providers = createProvidersFromEnvironment({

@@ -4,12 +4,12 @@
 
 Phase 3 treats provider-native stem labels and provider output filenames as the authoritative signal for instrument labeling.
 
-The current MVSEP stem-separation output already names stems with instrument suffixes such as `vocals`, `instrum`, `bass`, `drums`, `guitar`, `piano`, and `other`. ReMuse normalizes those labels into its own instrument taxonomy and does not send stems through a separate AI/audio classifier.
+The current stem-separation providers already name stems with instrument labels or suffixes. ReMuse normalizes those labels into its own instrument taxonomy and does not send stems through a separate AI/audio classifier.
 
 ## Flow
 
 ```text
-MVSEP stem artifact
+provider stem artifact
 -> provider label and filename suffix
 -> normalized ReMuse instrument label
 -> MIDI filename and sample-library key
@@ -26,6 +26,20 @@ The active MVSEP path uses `BS Roformer SW (vocals, bass, drums, guitar, piano, 
 - `guitar`
 - `piano`
 - `other`
+
+## LALAL.AI Multistem Inventory
+
+The LALAL.AI path uses `/api/v1/split/multistem/` with the documented multistem set. ReMuse requests WAV output and expects at most seven tracks:
+
+- `vocals`
+- `drum`
+- `piano`
+- `bass`
+- `electric_guitar`
+- `acoustic_guitar`
+- `no_multistem`
+
+The `no_multistem` remainder track is normalized to `other` so the human review workflow can decide whether to keep, relabel, or discard it.
 
 ## Confidence Policy
 

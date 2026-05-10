@@ -1,13 +1,26 @@
 import type { PipelineProviders } from "../pipeline/types.ts";
 import type { FileArtifactStore } from "../storage/fileArtifactStore.ts";
 import type { MidiConversionJobRequest } from "./contracts/externalAudioContracts.ts";
+import {
+  LalalClient,
+  LALAL_MULTISTEM_DEFAULT_STEMS,
+  LALAL_MULTISTEM_SUPPORTED_STEMS,
+  type LalalExtractionLevel,
+  type LalalMultistemStem,
+  type LalalSplitter
+} from "./lalal/client.ts";
+import { LalalInstrumentStemSeparationProvider } from "./lalal/providers.ts";
 import { BasicPitchMidiConversionProvider, type BasicPitchModelSerialization } from "./midi/basicPitchMidiConversionProvider.ts";
 import { HttpMidiConversionProvider } from "./midi/httpMidiConversionProvider.ts";
+import { MockInstrumentStemSeparationProvider } from "./mock/stemSeparationProvider.ts";
 import { createMockProviders } from "./mock/index.ts";
-import { createMvsepProviders } from "./mvsep/providers.ts";
+import { MvsepClient } from "./mvsep/client.ts";
+import { createMvsepProviders, MvsepInstrumentStemSeparationProvider } from "./mvsep/providers.ts";
 import { LocalOpenDawSessionProvider, type LocalOpenDawRenderBackendOptions } from "./opendaw/localSessionProvider.ts";
+import { ProviderNativeInstrumentIdentificationProvider } from "./providerNativeInstrumentIdentificationProvider.ts";
 
 export type ProviderMode = "mock" | "mvsep";
+export type StemProviderMode = "mock" | "mvsep" | "lalal";
 export type MidiProviderMode = "mock" | "http" | "basic-pitch";
 export type OpenDawProviderMode = "mock" | "local-session";
 export type OpenDawRendererMode = "preview" | "fluidsynth";
@@ -58,6 +71,15 @@ function providerModeFromEnv(env: ProviderEnvironment): ProviderMode {
   return mode;
 }
 
+function stemProviderModeFromEnv(env: ProviderEnvironment, providerMode: ProviderMode): StemProviderMode {
+  const mode = env.REMUSE_STEM_PROVIDER ?? (providerMode === "mvsep" ? "mvsep" : "mock");
+  if (mode !== "mock" && mode !== "mvsep" && mode !== "lalal") {
+    throw new Error(`Unsupported REMUSE_STEM_PROVIDER "${mode}". Expected "mock", "mvsep", or "lalal".`);
+  }
+
+  return mode;
+}
+
 function midiProviderModeFromEnv(env: ProviderEnvironment): MidiProviderMode {
   const mode = env.REMUSE_MIDI_PROVIDER ?? "mock";
   if (mode !== "mock" && mode !== "http" && mode !== "basic-pitch") {
@@ -94,6 +116,15 @@ function requiredEnv(env: ProviderEnvironment, name: string): string {
   return value;
 }
 
+function requiredStemProviderEnv(env: ProviderEnvironment, stemMode: StemProviderMode, name: string): string {
+  const value = env[name];
+  if (value === undefined || value.trim().length === 0) {
+    throw new Error(`REMUSE_STEM_PROVIDER=${stemMode} requires ${name}.`);
+  }
+
+  return value.trim();
+}
+
 function requiredOpenDawRendererEnv(env: ProviderEnvironment, name: string): string {
   const value = env[name];
   if (value === undefined || value.trim().length === 0) {
@@ -101,6 +132,15 @@ function requiredOpenDawRendererEnv(env: ProviderEnvironment, name: string): str
   }
 
   return value.trim();
+}
+
+function mvsepOutputFormatFromEnv(env: ProviderEnvironment): number {
+  const outputFormat = numberFromEnv(env.MVSEP_OUTPUT_FORMAT, 1);
+  if (outputFormat !== 1) {
+    throw new Error("The MVSEP adapter currently supports only MVSEP_OUTPUT_FORMAT=1 (WAV 16-bit).");
+  }
+
+  return outputFormat;
 }
 
 function quantizationFromEnv(value: string | undefined): MidiConversionJobRequest["quantization"] | undefined {
@@ -129,6 +169,126 @@ function basicPitchModelSerializationFromEnv(value: string | undefined): BasicPi
   }
 
   throw new Error(`Unsupported BASIC_PITCH_MODEL_SERIALIZATION "${value}".`);
+}
+
+function lalalStemFromEnvValue(value: string): LalalMultistemStem {
+  const normalized = value.trim().toLowerCase().replace(/-/g, "_");
+  const alias = normalized === "drums" ? "drum" : normalized;
+
+  if ((LALAL_MULTISTEM_SUPPORTED_STEMS as readonly string[]).includes(alias)) {
+    return alias as LalalMultistemStem;
+  }
+
+  throw new Error(`Unsupported LALAL_STEM_LIST entry "${value}". Expected one of ${LALAL_MULTISTEM_SUPPORTED_STEMS.join(", ")}.`);
+}
+
+function lalalStemListFromEnv(value: string | undefined): readonly LalalMultistemStem[] {
+  if (value === undefined || value.trim().length === 0) {
+    return LALAL_MULTISTEM_DEFAULT_STEMS;
+  }
+
+  const stems = value
+    .split(",")
+    .map(lalalStemFromEnvValue)
+    .filter((item, index, array) => array.indexOf(item) === index);
+
+  if (stems.length === 0) {
+    throw new Error("LALAL_STEM_LIST must include at least one stem.");
+  }
+
+  return stems;
+}
+
+function lalalSplitterFromEnv(value: string | undefined): LalalSplitter {
+  if (value === undefined || value.trim().length === 0) {
+    return "auto";
+  }
+
+  if (value === "auto" || value === "andromeda" || value === "perseus" || value === "orion" || value === "phoenix" || value === "lyra" || value === "lynx") {
+    return value;
+  }
+
+  throw new Error(`Unsupported LALAL_SPLITTER "${value}".`);
+}
+
+function lalalExtractionLevelFromEnv(value: string | undefined): LalalExtractionLevel {
+  if (value === undefined || value.trim().length === 0) {
+    return "deep_extraction";
+  }
+
+  if (value === "deep_extraction" || value === "clear_cut") {
+    return value;
+  }
+
+  throw new Error(`Unsupported LALAL_EXTRACTION_LEVEL "${value}".`);
+}
+
+function assertLalalWavEncoderFormat(value: string | undefined): void {
+  if (value !== undefined && value.trim().length > 0 && value.trim() !== "wav") {
+    throw new Error("The LALAL.AI adapter currently supports only LALAL_ENCODER_FORMAT=wav because ReMuse expects WAV stems.");
+  }
+}
+
+function validateLalalSplitterStemCompatibility(stemList: readonly LalalMultistemStem[], splitter: LalalSplitter): void {
+  if (splitter === "andromeda" && stemList.includes("piano")) {
+    throw new Error("LALAL_SPLITTER=andromeda does not support the piano multistem in LALAL.AI. Use LALAL_SPLITTER=auto or remove piano from LALAL_STEM_LIST.");
+  }
+}
+
+function withConfiguredStemProvider(
+  providers: PipelineProviders,
+  artifactStore: FileArtifactStore,
+  env: ProviderEnvironment,
+  stemMode: StemProviderMode
+): PipelineProviders {
+  if (stemMode === "mock") {
+    return {
+      ...providers,
+      instrumentStemSeparation: new MockInstrumentStemSeparationProvider()
+    };
+  }
+
+  if (stemMode === "mvsep") {
+    const apiToken = requiredStemProviderEnv(env, "mvsep", "MVSEP_API_TOKEN");
+    const outputFormat = mvsepOutputFormatFromEnv(env);
+    const client = new MvsepClient({
+      apiToken,
+      ...(env.MVSEP_BASE_URL === undefined ? {} : { baseUrl: env.MVSEP_BASE_URL }),
+      pollIntervalMs: numberFromEnv(env.MVSEP_POLL_INTERVAL_MS, 10_000),
+      maxPollAttempts: numberFromEnv(env.MVSEP_MAX_POLL_ATTEMPTS, 120)
+    });
+
+    return {
+      ...providers,
+      instrumentStemSeparation: new MvsepInstrumentStemSeparationProvider(client, artifactStore, outputFormat),
+      instrumentIdentification: new ProviderNativeInstrumentIdentificationProvider()
+    };
+  }
+
+  assertLalalWavEncoderFormat(env.LALAL_ENCODER_FORMAT);
+  const stemList = lalalStemListFromEnv(env.LALAL_STEM_LIST);
+  const splitter = lalalSplitterFromEnv(env.LALAL_SPLITTER);
+  validateLalalSplitterStemCompatibility(stemList, splitter);
+
+  return {
+    ...providers,
+    instrumentStemSeparation: new LalalInstrumentStemSeparationProvider(
+      new LalalClient({
+        licenseKey: requiredStemProviderEnv(env, "lalal", "LALAL_LICENSE_KEY"),
+        ...(env.LALAL_BASE_URL === undefined ? {} : { baseUrl: env.LALAL_BASE_URL }),
+        pollIntervalMs: numberFromEnv(env.LALAL_POLL_INTERVAL_MS, 5_000),
+        maxPollAttempts: numberFromEnv(env.LALAL_MAX_POLL_ATTEMPTS, 120)
+      }),
+      artifactStore,
+      {
+        stemList,
+        splitter,
+        extractionLevel: lalalExtractionLevelFromEnv(env.LALAL_EXTRACTION_LEVEL),
+        deleteAfterDownload: booleanFromEnv(env.LALAL_DELETE_AFTER_DOWNLOAD, false)
+      }
+    ),
+    instrumentIdentification: new ProviderNativeInstrumentIdentificationProvider()
+  };
 }
 
 function withConfiguredMidiProvider(
@@ -206,15 +366,18 @@ function withConfiguredOpenDawProvider(
 export function createProvidersFromEnvironment(input: CreateProvidersFromEnvironmentInput): PipelineProviders {
   const env = input.env ?? process.env;
   const mode = providerModeFromEnv(env);
+  const stemMode = stemProviderModeFromEnv(env, mode);
   const midiMode = midiProviderModeFromEnv(env);
 
-  if (mode === "mock") {
-    if (midiMode === "basic-pitch") {
-      throw new Error("REMUSE_MIDI_PROVIDER=basic-pitch requires local file-backed stems. Use REMUSE_PROVIDER=mvsep or npm run demo:basic-pitch.");
-    }
+  if (midiMode === "basic-pitch" && stemMode === "mock") {
+    throw new Error(
+      "REMUSE_MIDI_PROVIDER=basic-pitch requires local file-backed stems. Use REMUSE_PROVIDER=mvsep, REMUSE_STEM_PROVIDER=lalal, or npm run demo:basic-pitch."
+    );
+  }
 
+  if (mode === "mock") {
     return withConfiguredOpenDawProvider(
-      withConfiguredMidiProvider(createMockProviders(), input.artifactStore, env),
+      withConfiguredMidiProvider(withConfiguredStemProvider(createMockProviders(), input.artifactStore, env, stemMode), input.artifactStore, env),
       input.artifactStore,
       env
     );
@@ -225,21 +388,23 @@ export function createProvidersFromEnvironment(input: CreateProvidersFromEnviron
     throw new Error("REMUSE_PROVIDER=mvsep requires MVSEP_API_TOKEN.");
   }
 
-  const outputFormat = numberFromEnv(env.MVSEP_OUTPUT_FORMAT, 1);
-  if (outputFormat !== 1) {
-    throw new Error("The MVSEP adapter currently supports only MVSEP_OUTPUT_FORMAT=1 (WAV 16-bit).");
-  }
+  const outputFormat = mvsepOutputFormatFromEnv(env);
 
   return withConfiguredOpenDawProvider(
     withConfiguredMidiProvider(
-      createMvsepProviders({
-        artifactStore: input.artifactStore,
-        apiToken,
-        ...(env.MVSEP_BASE_URL === undefined ? {} : { baseUrl: env.MVSEP_BASE_URL }),
-        outputFormat,
-        pollIntervalMs: numberFromEnv(env.MVSEP_POLL_INTERVAL_MS, 10_000),
-        maxPollAttempts: numberFromEnv(env.MVSEP_MAX_POLL_ATTEMPTS, 120)
-      }),
+      withConfiguredStemProvider(
+        createMvsepProviders({
+          artifactStore: input.artifactStore,
+          apiToken,
+          ...(env.MVSEP_BASE_URL === undefined ? {} : { baseUrl: env.MVSEP_BASE_URL }),
+          outputFormat,
+          pollIntervalMs: numberFromEnv(env.MVSEP_POLL_INTERVAL_MS, 10_000),
+          maxPollAttempts: numberFromEnv(env.MVSEP_MAX_POLL_ATTEMPTS, 120)
+        }),
+        input.artifactStore,
+        env,
+        stemMode
+      ),
       input.artifactStore,
       env
     ),
