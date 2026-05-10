@@ -819,8 +819,8 @@
             <div class="job-progress-fill" id="jobProgressFill"></div>
           </div>
           <div class="job-links">
-            <a id="reviewLink" href="#" target="_blank" rel="noopener" hidden>Open job progress</a>
-            <a id="resultLink" href="#" target="_blank" rel="noopener" hidden>Open result JSON</a>
+            <a id="reviewLink" href="#" target="_blank" rel="noopener" hidden>Open Job Progress</a>
+            <a id="resultLink" href="#" target="_blank" rel="noopener" hidden>Open Result JSON</a>
           </div>
           <details class="job-details" id="jobDetails">
             <summary>Details</summary>
@@ -968,6 +968,7 @@
       function progressForJob(record) {
         if (record.status === "succeeded") return 100;
         if (record.status === "failed") return 100;
+        if (record.status === "cancelled") return 100;
 
         const latestByStep = new Map();
         for (const event of record.events || []) {
@@ -1092,7 +1093,7 @@
         const reviewUrl = record.reviewUrl || (record.id ? `/review/${record.id}` : "#");
         reviewLink.href = reviewUrl;
         reviewLink.hidden = !record.id;
-        reviewLink.textContent = record.status === "awaiting-review" ? "Open manual review" : "Open job progress";
+        reviewLink.textContent = "Open Job Progress";
         resultLink.href = record.id ? `/v1/jobs/${record.id}/result` : "#";
         resultLink.hidden = record.status !== "succeeded";
 
@@ -1124,6 +1125,12 @@
           return;
         }
 
+        if (record.status === "cancelled") {
+          setJobUi("Cancelled", record.error?.message || "This ReMuse job was cancelled.", 100);
+          renderDiagnosticTracks(record.id, []);
+          return;
+        }
+
         renderDiagnosticTracks(record.id, []);
         setJobUi(latestStep, latestMessage, percent);
       }
@@ -1139,7 +1146,7 @@
           const record = await response.json();
           renderJobRecord(record);
 
-          if (record.status !== "succeeded" && record.status !== "failed") {
+          if (record.status !== "succeeded" && record.status !== "failed" && record.status !== "cancelled") {
             pollTimer = window.setTimeout(() => pollJobStatus(statusUrl), 2500);
           }
         } catch (error) {

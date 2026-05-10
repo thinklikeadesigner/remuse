@@ -157,3 +157,17 @@ export function createNonSilentReviewClip(buffer: Buffer, options: ReviewClipOpt
     containsAudio: audibleFrame !== undefined
   };
 }
+
+export function createFullStemReviewAudio(buffer: Buffer, options: Pick<ReviewClipOptions, "silenceThreshold"> = {}): ReviewClipResult {
+  const wav = parsePcmWavData(buffer);
+  const silenceThreshold = options.silenceThreshold ?? 0.003;
+  const audibleFrame = firstAudibleFrame(buffer, wav, silenceThreshold);
+  const data = buffer.subarray(wav.dataStart, wav.dataStart + wav.dataBytes);
+
+  return {
+    bytes: Buffer.concat([wavHeader(wav.format, data.length), data]),
+    startSeconds: 0,
+    durationSeconds: wav.frameCount / wav.format.sampleRateHz,
+    containsAudio: audibleFrame !== undefined
+  };
+}

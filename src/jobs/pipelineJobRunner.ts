@@ -1,8 +1,9 @@
 import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
-import { createNonSilentReviewClip } from "../audio/reviewClip.ts";
+import { createFullStemReviewAudio } from "../audio/reviewClip.ts";
+import { renderSessionPreviewBounceWav } from "../audio/sessionPreviewBounce.ts";
 import type { AudioArtifact, HumanInstrumentReviewRequest, PendingInstrumentReview, PipelineProviders } from "../pipeline/types.ts";
-import { humanInstrumentReviewOptions } from "../pipeline/naming.ts";
+import { defaultManualInstrumentLabelForProviderLabel, humanInstrumentReviewOptions } from "../pipeline/naming.ts";
 import { continuePipelineFromManualReview, ManualInstrumentReviewRequiredError, runPipeline } from "../pipeline/workflow.ts";
 import { createMockProviders } from "../providers/mock/index.ts";
 import type { FileArtifactStore } from "../storage/fileArtifactStore.ts";
@@ -15,6 +16,23 @@ export type PipelineJobRunnerOptions = {
 
 function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
+}
+
+async function readReviewClipSourceBytes(stem: ManualInstrumentReviewRequiredError["reviewStems"][number]): Promise<Buffer> {
+  if (stem.stem.uri.startsWith("file://")) {
+    return readFile(fileURLToPath(stem.stem.uri));
+  }
+
+  return renderSessionPreviewBounceWav({
+    durationSeconds: stem.stem.durationSeconds ?? 5,
+    tracks: [
+      {
+        trackId: stem.stem.id,
+        ...(stem.label.midiProgram === undefined ? {} : { midiProgram: stem.label.midiProgram }),
+        isPercussion: stem.label.family === "drums" || stem.label.family === "percussion"
+      }
+    ]
+  });
 }
 
 export class PipelineJobRunner {
@@ -104,7 +122,7 @@ export class PipelineJobRunner {
     const awaitingEvent = {
       step: "manual-instrument-review" as const,
       status: "awaiting-input" as const,
-      message: `Waiting for user labels on ${requests.length} non-specific stem(s).`,
+      message: `Waiting for user review on ${requests.length} stem(s).`,
       at: new Date().toISOString()
     };
     error.state.events.push(awaitingEvent);
@@ -130,9 +148,8 @@ export class PipelineJobRunner {
     jobId: string,
     stem: ManualInstrumentReviewRequiredError["reviewStems"][number]
   ): Promise<HumanInstrumentReviewRequest> {
-    const sourcePath = fileURLToPath(stem.stem.uri);
-    const sourceBytes = await readFile(sourcePath);
-    const clip = createNonSilentReviewClip(sourceBytes);
+    const sourceBytes = await readReviewClipSourceBytes(stem);
+    const clip = createFullStemReviewAudio(sourceBytes);
     const clipFilename = stem.stem.filename.replace(/\.wav$/i, "") + ".review-clip.wav";
     const stored = await this.artifactStore.saveAudioArtifact({
       jobId,
@@ -147,6 +164,7 @@ export class PipelineJobRunner {
         containsAudio: clip.containsAudio
       }
     });
+    const selectedLabel = defaultManualInstrumentLabelForProviderLabel(stem.label, stem.stem.id);
 
     return {
       id: `${stem.stem.id}-instrument-review`,
@@ -155,7 +173,8 @@ export class PipelineJobRunner {
       currentLabel: stem.label,
       clip: stored.artifact,
       options: humanInstrumentReviewOptions(),
-      status: "pending"
+      status: "pending",
+      ...(selectedLabel === undefined ? {} : { selectedLabel })
     };
   }
 }

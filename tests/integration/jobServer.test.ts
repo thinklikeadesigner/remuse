@@ -37,7 +37,24 @@ test("job backend accepts WAV upload, tracks state, and exposes mock pipeline re
   let status = (await app.api.getJobStatus(created.jobId)) as {
     status: string;
     events: Array<{ step: string; status: string }>;
+    pendingInstrumentReviews: Array<{ id: string; selectedLabel?: { canonicalName: string }; currentLabel: { canonicalName: string } }>;
   };
+
+  for (let attempt = 0; attempt < 20 && status.status !== "awaiting-review"; attempt += 1) {
+    await new Promise((resolve) => setTimeout(resolve, 25));
+    status = (await app.api.getJobStatus(created.jobId)) as typeof status;
+  }
+
+  assert.equal(status.status, "awaiting-review");
+  await app.api.completeInstrumentReview(
+    created.jobId,
+    new Map(
+      status.pendingInstrumentReviews.map((request) => [
+        request.id,
+        { discard: false, selection: request.selectedLabel?.canonicalName ?? request.currentLabel.canonicalName }
+      ])
+    )
+  );
 
   for (let attempt = 0; attempt < 20 && status.status !== "succeeded"; attempt += 1) {
     await new Promise((resolve) => setTimeout(resolve, 25));
@@ -132,7 +149,7 @@ test("job backend pauses for human review of non-specific stems and resumes afte
       const providers = createMockProviders();
       providers.instrumentStemSeparation = {
         async separateInstruments(dryOnly, context) {
-          const createReviewStem = async (index: number) => {
+          const createReviewStem = async (index: number, providerLabel: string) => {
             const bytes = createPcmWavFixture({ frames: 44100 * 8 });
             const audibleFrame = 44100 * 3;
             bytes.writeInt16LE(12000 + index, 44 + audibleFrame * 2 * 2);
@@ -141,19 +158,19 @@ test("job backend pauses for human review of non-specific stems and resumes afte
               jobId: context.jobId,
               stage: "instrument-stems",
               kind: "instrument-stem",
-              filename: `source.dry-only.stem-0${index}.other.wav`,
+              filename: `source.stem-0${index}.${providerLabel.toLowerCase()}.wav`,
               bytes,
               sourceArtifactIds: [dryOnly.id],
               metadata: {
                 provider: "test-stem-provider",
-                providerLabel: "Other"
+                providerLabel
               }
             });
 
             return { stem: stored.artifact };
           };
 
-          return [await createReviewStem(1), await createReviewStem(2)];
+          return [await createReviewStem(1, "Bass"), await createReviewStem(2, "Vocals"), await createReviewStem(3, "Other")];
         }
       };
 
@@ -172,7 +189,9 @@ test("job backend pauses for human review of non-specific stems and resumes afte
     status: string;
     pendingInstrumentReviews: Array<{
       id: string;
+      selectedLabel?: { canonicalName: string };
       clip: { metadata: { clipStartSeconds: number; containsAudio: boolean } };
+      currentLabel: { canonicalName: string };
       options: Array<{ displayName: string }>;
     }>;
   };
@@ -184,37 +203,59 @@ test("job backend pauses for human review of non-specific stems and resumes afte
 
   assert.equal(status.status, "awaiting-review");
   assert.deepEqual(openedUrls, [`http://remuse.test/review/${created.jobId}`]);
-  assert.equal(status.pendingInstrumentReviews.length, 2);
+  assert.equal(status.pendingInstrumentReviews.length, 3);
   assert.deepEqual(
     status.pendingInstrumentReviews[0]?.options.map((option) => option.displayName),
-    ["Brass", "Woodwinds", "Strings", "Percussion", "Organ", "Synthesizer"]
+    [
+      "Lead Vocals",
+      "Backing Vocals",
+      "Drums",
+      "Bass",
+      "Guitar",
+      "Piano",
+      "Brass",
+      "Woodwinds",
+      "Strings",
+      "Percussion",
+      "Organ",
+      "Synthesizer"
+    ]
   );
   assert.equal(status.pendingInstrumentReviews[0]?.clip.metadata.containsAudio, true);
-  assert.ok((status.pendingInstrumentReviews[0]?.clip.metadata.clipStartSeconds ?? 0) > 0);
+  assert.equal(status.pendingInstrumentReviews[0]?.clip.metadata.clipStartSeconds, 0);
+  assert.equal(status.pendingInstrumentReviews[0]?.selectedLabel?.canonicalName, "bass");
+  assert.equal(status.pendingInstrumentReviews[1]?.currentLabel.canonicalName, "vocals");
+  assert.equal(status.pendingInstrumentReviews[1]?.selectedLabel?.canonicalName, "lead-vocals");
+  assert.equal(status.pendingInstrumentReviews[2]?.selectedLabel, undefined);
 
   const reviewId = status.pendingInstrumentReviews[0]?.id;
-  const discardReviewId = status.pendingInstrumentReviews[1]?.id;
-  if (reviewId === undefined || discardReviewId === undefined) {
-    throw new Error("Expected two pending review IDs.");
+  const vocalsReviewId = status.pendingInstrumentReviews[1]?.id;
+  const discardReviewId = status.pendingInstrumentReviews[2]?.id;
+  if (reviewId === undefined || vocalsReviewId === undefined || discardReviewId === undefined) {
+    throw new Error("Expected three pending review IDs.");
   }
   const reviewPage = await app.api.getInstrumentReviewPage(created.jobId);
   assert.match(reviewPage, /<audio controls/);
   assert.match(reviewPage, new RegExp(reviewId));
+  assert.match(reviewPage, new RegExp(vocalsReviewId));
   assert.match(reviewPage, new RegExp(discardReviewId));
   assert.match(reviewPage, /<option value="Organ">Organ<\/option>/);
-  assert.match(reviewPage, /<button class="discard-button" type="submit">Discard<\/button>/);
-  assert.match(reviewPage, new RegExp(`/review/${created.jobId}/${reviewId}`));
+  assert.match(reviewPage, /<button class="discard-button" type="button" data-discard-button>Discard<\/button>/);
+  assert.match(reviewPage, new RegExp(`/review/${created.jobId}/complete`));
+  assert.match(reviewPage, /Complete Review/);
+  assert.match(reviewPage, /window\.confirm\("You are about to discard this ReMuse - are you sure\?"\)/);
 
   const clip = await app.api.getInstrumentReviewClip(created.jobId, reviewId);
-  assert.equal(parseWavFormat(clip.bytes).durationSeconds, 5);
+  assert.equal(parseWavFormat(clip.bytes).durationSeconds, 8);
 
-  await app.api.submitInstrumentReview(created.jobId, reviewId, "Organ");
-  const resolvedReviewPage = await app.api.getInstrumentReviewPage(created.jobId);
-  assert.match(resolvedReviewPage, /review-card is-resolved/);
-  assert.match(resolvedReviewPage, /Selected: <strong>organ<\/strong>/);
-  assert.doesNotMatch(resolvedReviewPage, new RegExp(`<form method="post" action="/review/${created.jobId}/${reviewId}"`));
-
-  await app.api.discardInstrumentReview(created.jobId, discardReviewId);
+  await app.api.completeInstrumentReview(
+    created.jobId,
+    new Map([
+      [reviewId, { discard: false, selection: "Guitar" }],
+      [vocalsReviewId, { discard: false, selection: "Lead Vocals" }],
+      [discardReviewId, { discard: true }]
+    ])
+  );
   const closePage = renderReviewClosedPage(created.jobId);
   assert.match(closePage, /Manual Review Complete/);
   assert.match(closePage, /window\.close\(\)/);
@@ -230,11 +271,58 @@ test("job backend pauses for human review of non-specific stems and resumes afte
 
   const result = (await app.api.getJobResult(created.jobId)) as {
     manualReviews: Array<{ status: string; selectedLabel?: { canonicalName: string } }>;
+    instrumentStems: Array<{ stem: { filename: string; uri: string; metadata: Record<string, unknown> }; label?: { canonicalName: string } }>;
     midi: { midiFiles: Array<{ filename: string }> };
   };
 
-  assert.equal(result.manualReviews[0]?.selectedLabel?.canonicalName, "organ");
-  assert.equal(result.manualReviews[1]?.status, "discarded");
-  assert.equal(result.midi.midiFiles.length, 1);
-  assert.equal(result.midi.midiFiles[0]?.filename.endsWith("_organ.mid"), true);
+  assert.equal(result.manualReviews[0]?.selectedLabel?.canonicalName, "guitar");
+  assert.equal(result.manualReviews[1]?.selectedLabel?.canonicalName, "lead-vocals");
+  assert.equal(result.manualReviews[2]?.status, "discarded");
+  assert.equal(result.instrumentStems.length, 2);
+  assert.equal(result.instrumentStems[0]?.stem.filename.endsWith(".guitar.wav"), true);
+  assert.equal(result.instrumentStems[0]?.stem.metadata.normalizedInstrument, "guitar");
+  assert.equal(result.instrumentStems[0]?.label?.canonicalName, "guitar");
+  assert.equal(result.midi.midiFiles.length, 2);
+  assert.equal(result.midi.midiFiles[0]?.filename.endsWith("_guitar.mid"), true);
+  assert.equal(result.midi.midiFiles[1]?.filename.endsWith("_lead-vocals.mid"), true);
+});
+
+test("manual review can cancel a job when every stem is discarded", async () => {
+  const rootDir = await mkdtemp(join(tmpdir(), "remuse-manual-review-cancel-"));
+  const app = createJobServer({
+    rootDir,
+    providers: createMockProviders()
+  });
+
+  const created = (await app.api.createJobFromUpload({
+    bytes: createPcmWavFixture(),
+    contentType: "audio/wav",
+    filename: "source.wav"
+  })) as { jobId: string };
+
+  let status = (await app.api.getJobStatus(created.jobId)) as {
+    status: string;
+    pendingInstrumentReviews: Array<{ id: string }>;
+    error?: { message: string };
+  };
+
+  for (let attempt = 0; attempt < 20 && status.status !== "awaiting-review"; attempt += 1) {
+    await new Promise((resolve) => setTimeout(resolve, 25));
+    status = (await app.api.getJobStatus(created.jobId)) as typeof status;
+  }
+
+  assert.equal(status.status, "awaiting-review");
+  assert.ok(status.pendingInstrumentReviews.length > 0);
+
+  const cancelled = (await app.api.completeInstrumentReview(
+    created.jobId,
+    new Map(status.pendingInstrumentReviews.map((request) => [request.id, { discard: true }]))
+  )) as { status: string; error?: { message: string } };
+
+  assert.equal(cancelled.status, "cancelled");
+  assert.equal(cancelled.error?.message, "All stems were discarded during manual review.");
+
+  status = (await app.api.getJobStatus(created.jobId)) as typeof status;
+  assert.equal(status.status, "cancelled");
+  assert.equal(status.error?.message, "All stems were discarded during manual review.");
 });

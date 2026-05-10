@@ -4,6 +4,7 @@ import {
   inferInstrumentLabel,
   inferInstrumentLabelFromName,
   instrumentNameCandidateFromFilename,
+  defaultManualInstrumentLabelForProviderLabel,
   humanInstrumentReviewOptions,
   labelForManualInstrumentSelection,
   makeMidiFilename,
@@ -80,7 +81,20 @@ test("inferInstrumentLabel trusts provider labels before filename fallback", () 
 test("manual review options cover non-MVSEP instrument choices", () => {
   assert.deepEqual(
     humanInstrumentReviewOptions().map((option) => option.displayName),
-    ["Brass", "Woodwinds", "Strings", "Percussion", "Organ", "Synthesizer"]
+    [
+      "Lead Vocals",
+      "Backing Vocals",
+      "Drums",
+      "Bass",
+      "Guitar",
+      "Piano",
+      "Brass",
+      "Woodwinds",
+      "Strings",
+      "Percussion",
+      "Organ",
+      "Synthesizer"
+    ]
   );
 
   const label = labelForManualInstrumentSelection("Synthesizer", "stem-999");
@@ -103,6 +117,21 @@ test("manual review options cover non-MVSEP instrument choices", () => {
   assert.equal(strings.canonicalName, "strings");
   assert.equal(strings.midiProgram, 49);
   assert.equal(strings.sampleLibraryKey, "studio-strings");
+
+  const leadVocals = labelForManualInstrumentSelection("Lead Vocals", "stem-995");
+  assert.equal(leadVocals.canonicalName, "lead-vocals");
+  assert.equal(leadVocals.family, "vocal");
+});
+
+test("manual review defaults generic vocals to lead vocals without offering a generic vocals option", () => {
+  const providerLabel = inferInstrumentLabel({
+    providerLabel: "Vocals",
+    detectedFromArtifactId: "stem-994"
+  });
+  const defaultLabel = defaultManualInstrumentLabelForProviderLabel(providerLabel);
+
+  assert.equal(defaultLabel?.canonicalName, "lead-vocals");
+  assert.equal(humanInstrumentReviewOptions().some((option) => option.displayName === "Vocals"), false);
 });
 
 test("makeMidiFilename preserves job, order, and instrument label", () => {

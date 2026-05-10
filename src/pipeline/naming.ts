@@ -31,6 +31,12 @@ const familyHints: Array<{
 ];
 
 export const HUMAN_INSTRUMENT_REVIEW_OPTIONS: readonly HumanInstrumentReviewOption[] = [
+  { canonicalName: "lead-vocals", displayName: "Lead Vocals", family: "vocal", sampleLibraryKey: "lead-vocal-synth" },
+  { canonicalName: "back-vocals", displayName: "Backing Vocals", family: "vocal", sampleLibraryKey: "backing-vocal-synth" },
+  { canonicalName: "drums", displayName: "Drums", family: "drums", sampleLibraryKey: "studio-drums" },
+  { canonicalName: "bass", displayName: "Bass", family: "bass", midiProgram: 32, sampleLibraryKey: "upright-bass" },
+  { canonicalName: "guitar", displayName: "Guitar", family: "guitar", midiProgram: 26, sampleLibraryKey: "jazz-guitar" },
+  { canonicalName: "piano", displayName: "Piano", family: "keys", midiProgram: 0, sampleLibraryKey: "grand-piano" },
   { canonicalName: "brass", displayName: "Brass", family: "wind", midiProgram: 62, sampleLibraryKey: "studio-brass" },
   { canonicalName: "woodwinds", displayName: "Woodwinds", family: "wind", midiProgram: 67, sampleLibraryKey: "studio-winds" },
   { canonicalName: "strings", displayName: "Strings", family: "strings", midiProgram: 49, sampleLibraryKey: "studio-strings" },
@@ -128,6 +134,18 @@ export function labelForManualInstrumentSelection(selection: string, detectedFro
     ...(option.midiProgram === undefined ? {} : { midiProgram: option.midiProgram }),
     ...(option.sampleLibraryKey === undefined ? {} : { sampleLibraryKey: option.sampleLibraryKey })
   };
+}
+
+export function defaultManualInstrumentLabelForProviderLabel(
+  label: InstrumentLabel,
+  detectedFromArtifactId: string = label.detectedFromArtifactId
+): InstrumentLabel | undefined {
+  if (label.canonicalName === "vocals") {
+    return labelForManualInstrumentSelection("Lead Vocals", detectedFromArtifactId);
+  }
+
+  const option = HUMAN_INSTRUMENT_REVIEW_OPTIONS.find((item) => item.canonicalName === label.canonicalName);
+  return option === undefined ? undefined : labelForManualInstrumentSelection(option.displayName, detectedFromArtifactId);
 }
 
 export function makeMidiFilename(jobId: string, label: InstrumentLabel, stemIndex: number): string {

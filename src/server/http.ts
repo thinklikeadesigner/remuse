@@ -7,8 +7,8 @@ import { fileURLToPath } from "node:url";
 import { FileJobStore } from "../jobs/fileJobStore.ts";
 import { PipelineJobRunner } from "../jobs/pipelineJobRunner.ts";
 import type { PipelineJobRecord } from "../jobs/types.ts";
-import type { PipelineProviders, PipelineStepName } from "../pipeline/types.ts";
-import { labelForManualInstrumentSelection } from "../pipeline/naming.ts";
+import type { HumanInstrumentReviewRequest, InstrumentLabel, InstrumentStem, PipelineProviders, PipelineStepName } from "../pipeline/types.ts";
+import { labelForManualInstrumentSelection, normalizeInstrumentName } from "../pipeline/naming.ts";
 import { FileArtifactStore } from "../storage/fileArtifactStore.ts";
 
 export type JobServerOptions = {
@@ -248,6 +248,10 @@ function routeReviewForm(pathname: string): { jobId: string; reviewRequestId: st
   return match === null ? undefined : { jobId: match[1] ?? "", reviewRequestId: match[2] ?? "" };
 }
 
+function routeReviewComplete(pathname: string): string | undefined {
+  return pathname.match(/^\/review\/([^/]+)\/complete$/)?.[1];
+}
+
 function selectionFromBody(body: unknown): string {
   if (typeof body === "string" && body.trim().length > 0) {
     return body;
@@ -265,6 +269,7 @@ function selectionFromBody(body: unknown): string {
 }
 
 type ReviewFormAction = { kind: "label"; selection: string } | { kind: "discard" };
+type ReviewCompletionChoice = { discard: boolean; selection?: string };
 
 function reviewActionFromFormBody(body: URLSearchParams): ReviewFormAction {
   if (body.get("action") === "discard") {
@@ -279,12 +284,37 @@ function reviewActionFromFormBody(body: URLSearchParams): ReviewFormAction {
   throw new HttpError(400, "Manual review form must include an instrument selection.");
 }
 
+function reviewCompletionChoicesFromFormBody(body: URLSearchParams): Map<string, ReviewCompletionChoice> {
+  const choices = new Map<string, ReviewCompletionChoice>();
+
+  for (const reviewRequestId of body.getAll("reviewId")) {
+    const trimmedId = reviewRequestId.trim();
+    if (trimmedId.length === 0) {
+      continue;
+    }
+
+    const discard = body.get(`discard:${trimmedId}`) === "1";
+    const selection = body.get(`instrument:${trimmedId}`)?.trim();
+    choices.set(trimmedId, {
+      discard,
+      ...(selection === undefined || selection.length === 0 ? {} : { selection })
+    });
+  }
+
+  if (choices.size === 0) {
+    throw new HttpError(400, "Manual review completion form must include at least one stem.");
+  }
+
+  return choices;
+}
+
 function reviewUpdateCompleted(result: unknown): boolean {
   if (result === null || typeof result !== "object" || Array.isArray(result)) {
     return false;
   }
 
-  return (result as Record<string, unknown>).status === "running";
+  const status = (result as Record<string, unknown>).status;
+  return status === "running" || status === "cancelled";
 }
 
 function escapeHtml(input: string): string {
@@ -328,6 +358,10 @@ function openReviewPage(jobId: string, options: JobApiOptions): void {
 function progressForRecord(record: PipelineJobRecord): { percent: number; step: string; message: string } {
   if (record.status === "succeeded") {
     return { percent: 100, step: "Complete", message: "The ReMuse job has completed." };
+  }
+
+  if (record.status === "cancelled") {
+    return { percent: 100, step: "Cancelled", message: record.error?.message ?? "The ReMuse job was cancelled." };
   }
 
   const latestByStep = new Map<PipelineStepName, PipelineJobRecord["events"][number]>();
@@ -382,15 +416,20 @@ function renderProgressPanel(record: PipelineJobRecord): string {
   `;
 }
 
-export function renderReviewClosedPage(jobId: string): string {
+export function renderReviewClosedPage(jobId: string, status: "running" | "cancelled" = "running"): string {
   const safeJobId = escapeHtml(jobId);
+  const heading = status === "cancelled" ? "ReMuse Cancelled" : "Manual Review Complete";
+  const message =
+    status === "cancelled"
+      ? `ReMuse job <code>${safeJobId}</code> was cancelled. This tab should close automatically.`
+      : `ReMuse is continuing job <code>${safeJobId}</code>. This tab should close automatically.`;
 
   return `<!doctype html>
 <html lang="en">
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Manual Review Complete ${safeJobId}</title>
+    <title>${heading} ${safeJobId}</title>
     <style>
       :root {
         color-scheme: dark;
@@ -415,8 +454,8 @@ export function renderReviewClosedPage(jobId: string): string {
   </head>
   <body>
     <main>
-      <h1><span class="status-dot" aria-hidden="true"></span>Manual Review Complete</h1>
-      <p>ReMuse is continuing job <code>${safeJobId}</code>. This tab should close automatically.</p>
+      <h1><span class="status-dot" aria-hidden="true"></span>${heading}</h1>
+      <p>${message}</p>
       <p>If it stays open, your browser blocked the close request and you can close it manually.</p>
     </main>
     <script>
@@ -437,60 +476,57 @@ function renderReviewPage(record: PipelineJobRecord): string {
       : "";
   const requestCards =
     requests.length === 0
-      ? `<section class="empty"><p>No pending review clips.</p></section>`
-      : requests
-          .map((request, index) => {
-            const clipUrl = `/v1/jobs/${encodeURIComponent(record.id)}/review-requests/${encodeURIComponent(request.id)}/clip`;
-            const action = `/review/${encodeURIComponent(record.id)}/${encodeURIComponent(request.id)}`;
-            const isResolved = request.status === "resolved";
-            const isDiscarded = request.status === "discarded";
-            const isComplete = isResolved || isDiscarded;
-            const options = request.options
-              .map((option) => {
-                const selected =
-                  request.selectedLabel?.canonicalName === option.canonicalName ||
-                  request.selectedLabel?.canonicalName === option.displayName;
-                return `<option value="${escapeHtml(option.displayName)}"${selected ? " selected" : ""}>${escapeHtml(option.displayName)}</option>`;
-              })
-              .join("");
-            const control = isResolved
-              ? `<p class="resolved-label">Selected: <strong>${escapeHtml(request.selectedLabel?.canonicalName ?? "resolved")}</strong></p>`
-              : isDiscarded
-                ? `<p class="resolved-label">Discarded from workflow.</p>`
-                : `<div class="review-actions">
-                    <form method="post" action="${action}">
-                      <label>
-                        Instrument
-                        <select name="instrument">${options}</select>
-                      </label>
-                      <button type="submit">Submit</button>
-                    </form>
-                    <form method="post" action="${action}">
-                      <input type="hidden" name="action" value="discard">
-                      <button class="discard-button" type="submit">Discard</button>
-                    </form>
-                  </div>`;
+      ? `<section class="empty"><p>No pending review stems.</p></section>`
+      : `<form class="review-form" method="post" action="/review/${encodeURIComponent(record.id)}/complete" data-review-form>
+          ${requests
+            .map((request, index) => {
+              const clipUrl = `/v1/jobs/${encodeURIComponent(record.id)}/review-requests/${encodeURIComponent(request.id)}/clip`;
+              const isDiscarded = request.status === "discarded";
+              const selectedCanonicalName = request.selectedLabel?.canonicalName;
+              const options = request.options
+                .map((option) => {
+                  const selected = selectedCanonicalName === option.canonicalName;
+                  return `<option value="${escapeHtml(option.displayName)}"${selected ? " selected" : ""}>${escapeHtml(option.displayName)}</option>`;
+                })
+                .join("");
 
-            return `
-              <section class="review-card${isComplete ? " is-resolved" : ""}">
-                <div>
-                  <p class="eyebrow">Review ${index + 1} of ${requests.length}</p>
-                  <h2>${escapeHtml(request.stemFilename)}</h2>
-                  <p class="current">Current label: <strong>${escapeHtml(request.currentLabel.canonicalName)}</strong></p>
-                </div>
-                <audio ${isComplete ? "disabled " : ""}controls preload="metadata" src="${clipUrl}"></audio>
-                ${control}
-              </section>
-            `;
-          })
-          .join("");
+              return `
+                <section class="review-card${isDiscarded ? " is-discarded" : ""}" data-review-card>
+                  <input type="hidden" name="reviewId" value="${escapeHtml(request.id)}">
+                  <input type="hidden" name="discard:${escapeHtml(request.id)}" value="${isDiscarded ? "1" : "0"}" data-discard-input>
+                  <div>
+                    <p class="eyebrow">Stem ${index + 1} of ${requests.length}</p>
+                    <h2>${escapeHtml(request.stemFilename)}</h2>
+                    <p class="current">Provider label: <strong>${escapeHtml(request.currentLabel.canonicalName)}</strong></p>
+                  </div>
+                  <audio controls preload="metadata" src="${clipUrl}"></audio>
+                  <div class="review-actions">
+                    <label>
+                      Instrument
+                      <select name="instrument:${escapeHtml(request.id)}" data-instrument-select>
+                        <option value="">Select instrument</option>
+                        ${options}
+                      </select>
+                    </label>
+                    <button class="discard-button" type="button" data-discard-button>${isDiscarded ? "Restore" : "Discard"}</button>
+                  </div>
+                </section>
+              `;
+            })
+            .join("")}
+          <div class="review-complete-bar">
+            <button type="submit" data-complete-review disabled>Complete Review</button>
+          </div>
+        </form>`;
   const statusPanel =
     record.status === "succeeded" && record.result !== undefined
-      ? `<p class="status-note">Complete. <a href="/v1/jobs/${encodeURIComponent(record.id)}/result">Open result JSON</a>.</p>`
+      ? `<p class="status-note">Complete. <a href="/v1/jobs/${encodeURIComponent(record.id)}/result">Open Result JSON</a>.</p>`
       : record.status === "failed"
         ? `<p class="status-note error">${escapeHtml(record.error?.message ?? "Job failed.")}</p>`
-        : record.status === "awaiting-review"
-          ? `<p class="status-note">Resolve each clip below to resume the job.</p>`
+        : record.status === "cancelled"
+          ? `<p class="status-note error">${escapeHtml(record.error?.message ?? "Job cancelled.")}</p>`
+          : record.status === "awaiting-review"
+            ? `<p class="status-note">Review every stem, discard anything unusable, then complete review to resume the job.</p>`
           : `<p class="status-note">Job is ${escapeHtml(record.status)}. This page refreshes while the job is active.</p>`;
 
   return `<!doctype html>
@@ -536,7 +572,8 @@ function renderReviewPage(record: PipelineJobRecord): string {
       progress::-moz-progress-bar { background: linear-gradient(90deg, var(--red), var(--gold), var(--green)); }
       .progress-dialog p { margin: 6px 0; color: var(--muted); }
       .progress-dialog strong { color: var(--text); }
-      .review-card.is-resolved { opacity: 0.54; background: rgba(27, 27, 27, 0.72); }
+      .review-form { display: block; }
+      .review-card.is-discarded { opacity: 0.54; background: rgba(27, 27, 27, 0.72); }
       .eyebrow { margin: 0; color: var(--gold); font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; }
       .current { margin: 0 0 14px; color: var(--muted); }
       .resolved-label { margin: 12px 0 0; color: var(--muted); }
@@ -547,7 +584,10 @@ function renderReviewPage(record: PipelineJobRecord): string {
       select, button { font: inherit; min-height: 38px; border-radius: 6px; border: 1px solid var(--line); background: var(--panel-2); color: var(--text); }
       select { min-width: 180px; padding: 0 10px; }
       button { padding: 0 16px; cursor: pointer; background: var(--green); color: #07110d; border-color: var(--green); font-weight: 720; }
+      button:disabled { cursor: not-allowed; background: #343434; border-color: #4a4a4a; color: #8f8f8f; }
       .discard-button { background: #251415; color: #f0b7ab; border-color: rgba(157, 47, 51, 0.7); }
+      .review-complete-bar { position: sticky; bottom: 0; display: flex; justify-content: flex-end; margin: 18px 0; padding: 14px 0 0; background: linear-gradient(180deg, transparent, var(--bg) 30%); }
+      .review-complete-bar button { min-width: 180px; }
       ul { padding-left: 20px; }
       li { margin: 8px 0; color: var(--muted); }
     </style>
@@ -566,6 +606,60 @@ function renderReviewPage(record: PipelineJobRecord): string {
         <ul>${lastEvents(record)}</ul>
       </section>
     </main>
+    <script>
+      const reviewForm = document.querySelector("[data-review-form]");
+      if (reviewForm) {
+        const cards = Array.from(document.querySelectorAll("[data-review-card]"));
+        const completeButton = document.querySelector("[data-complete-review]");
+        const isDiscarded = (card) => card.querySelector("[data-discard-input]")?.value === "1";
+        const updateReviewReadiness = () => {
+          const allReady = cards.length > 0 && cards.every((card) => {
+            const select = card.querySelector("[data-instrument-select]");
+            return isDiscarded(card) || Boolean(select?.value);
+          });
+          if (completeButton) {
+            completeButton.disabled = !allReady;
+          }
+        };
+
+        for (const button of document.querySelectorAll("[data-discard-button]")) {
+          button.addEventListener("click", () => {
+            const card = button.closest("[data-review-card]");
+            const input = card?.querySelector("[data-discard-input]");
+            if (!card || !input) {
+              return;
+            }
+
+            const nextDiscarded = input.value !== "1";
+            input.value = nextDiscarded ? "1" : "0";
+            card.classList.toggle("is-discarded", nextDiscarded);
+            button.textContent = nextDiscarded ? "Restore" : "Discard";
+            updateReviewReadiness();
+          });
+        }
+
+        for (const select of document.querySelectorAll("[data-instrument-select]")) {
+          select.addEventListener("change", updateReviewReadiness);
+        }
+
+        reviewForm.addEventListener("submit", (event) => {
+          updateReviewReadiness();
+          if (completeButton?.disabled) {
+            event.preventDefault();
+            return;
+          }
+
+          if (cards.length > 0 && cards.every(isDiscarded)) {
+            const confirmed = window.confirm("You are about to discard this ReMuse - are you sure?");
+            if (!confirmed) {
+              event.preventDefault();
+            }
+          }
+        });
+
+        updateReviewReadiness();
+      }
+    </script>
   </body>
 </html>`;
 }
@@ -602,6 +696,12 @@ function jobSummary(record: PipelineJobRecord): unknown {
     result: record.result,
     error: record.error
   };
+}
+
+function manualReviewStemFilename(request: HumanInstrumentReviewRequest, label: InstrumentLabel, index: number): string {
+  const stemNumber = request.stemFilename.match(/(?:^|\.)stem-(\d+)/i)?.[1] ?? String(index + 1).padStart(2, "0");
+  const baseName = request.stemFilename.match(/^(.*?)(?:\.stem-\d+)(?:\.[^.]+)?\.wav$/i)?.[1] ?? request.stemFilename.replace(/\.wav$/i, "");
+  return `${baseName}.stem-${stemNumber}.${normalizeInstrumentName(label.canonicalName)}.wav`;
 }
 
 export class JobApi {
@@ -849,9 +949,93 @@ export class JobApi {
           }
         : item
     );
-    const instrumentStems = pending.state.instrumentStems.filter((stem) => stem.stem.id !== request.stemArtifactId);
+    const instrumentStems = pending.state.instrumentStems;
 
     return this.applyManualReviewUpdate(jobId, pending, requests, instrumentStems);
+  }
+
+  async completeInstrumentReview(jobId: string, choices: Map<string, ReviewCompletionChoice>): Promise<unknown> {
+    const record = await this.jobStore.get(jobId);
+    if (record === undefined) {
+      throw new HttpError(404, `Job ${jobId} was not found.`);
+    }
+
+    const pending = record.pendingInstrumentReview;
+    if (record.status !== "awaiting-review" || pending === undefined) {
+      throw new HttpError(409, `Job ${jobId} is ${record.status}; no manual review is pending.`);
+    }
+
+    const updatedRequests: HumanInstrumentReviewRequest[] = [];
+    const keptStems: InstrumentStem[] = [];
+
+    for (const [index, request] of pending.requests.entries()) {
+      const choice = choices.get(request.id);
+      if (choice === undefined) {
+        throw new HttpError(400, `Manual review completion is missing a choice for ${request.id}.`);
+      }
+
+      if (choice.discard) {
+        updatedRequests.push({
+          ...request,
+          status: "discarded"
+        });
+        continue;
+      }
+
+      const selection = choice.selection ?? request.selectedLabel?.canonicalName;
+      if (selection === undefined || selection.trim().length === 0) {
+        throw new HttpError(400, `Manual review completion is missing an instrument for ${request.stemFilename}.`);
+      }
+
+      const selectedLabel = labelForManualInstrumentSelection(selection, request.stemArtifactId);
+      const stem = pending.state.instrumentStems.find((item) => item.stem.id === request.stemArtifactId);
+      if (stem === undefined) {
+        throw new HttpError(409, `Stem artifact ${request.stemArtifactId} was not found in pending review state.`);
+      }
+
+      const renamedStem = await this.artifactStore.renameAudioArtifact(
+        stem.stem,
+        manualReviewStemFilename(request, selectedLabel, index),
+        {
+          manualReviewInstrument: selectedLabel.canonicalName,
+          normalizedInstrument: selectedLabel.canonicalName
+        }
+      );
+      keptStems.push({
+        ...stem,
+        stem: renamedStem,
+        label: selectedLabel
+      });
+      updatedRequests.push({
+        ...request,
+        stemFilename: renamedStem.filename,
+        status: "resolved",
+        selectedLabel
+      });
+    }
+
+    if (keptStems.length === 0) {
+      const cancelledRecord = await this.jobStore.cancel(jobId, {
+        message: "All stems were discarded during manual review."
+      });
+      return jobSummary(cancelledRecord);
+    }
+
+    const updatedPending = {
+      state: {
+        ...pending.state,
+        instrumentStems: keptStems
+      },
+      requests: updatedRequests
+    };
+    const updatedRecord = await this.jobStore.updatePendingInstrumentReview(jobId, updatedPending, "running");
+    this.runner.startResume(updatedRecord);
+
+    return {
+      jobId,
+      status: "running",
+      requests: publicReviewRequests(updatedRecord)
+    };
   }
 
   private async applyManualReviewUpdate(
@@ -867,20 +1051,11 @@ export class JobApi {
       },
       requests
     };
-    const allReviewed = requests.every((item) => item.status !== "pending");
-    const updatedRecord = await this.jobStore.updatePendingInstrumentReview(
-      jobId,
-      updatedPending,
-      allReviewed ? "running" : "awaiting-review"
-    );
-
-    if (allReviewed) {
-      this.runner.startResume(updatedRecord);
-    }
+    const updatedRecord = await this.jobStore.updatePendingInstrumentReview(jobId, updatedPending, "awaiting-review");
 
     return {
       jobId,
-      status: allReviewed ? "running" : "awaiting-review",
+      status: "awaiting-review",
       requests: publicReviewRequests(updatedRecord)
     };
   }
@@ -923,6 +1098,23 @@ export function createJobServer(options: JobServerOptions): JobServerApp {
       const reviewPageJobId = request.method === "GET" ? routeReviewPage(url.pathname) : undefined;
       if (reviewPageJobId !== undefined) {
         sendHtml(response, 200, await api.getInstrumentReviewPage(reviewPageJobId));
+        return;
+      }
+
+      const reviewCompleteJobId = request.method === "POST" ? routeReviewComplete(url.pathname) : undefined;
+      if (reviewCompleteJobId !== undefined) {
+        const result = await api.completeInstrumentReview(
+          reviewCompleteJobId,
+          reviewCompletionChoicesFromFormBody(await readFormBody(request, maxUploadBytes))
+        );
+
+        if (reviewUpdateCompleted(result)) {
+          const status = (result as Record<string, unknown>).status === "cancelled" ? "cancelled" : "running";
+          sendHtml(response, 200, renderReviewClosedPage(reviewCompleteJobId, status));
+          return;
+        }
+
+        redirect(response, `/review/${encodeURIComponent(reviewCompleteJobId)}`);
         return;
       }
 

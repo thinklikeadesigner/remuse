@@ -1,6 +1,6 @@
-import { mkdir, writeFile } from "node:fs/promises";
-import { join } from "node:path";
-import { pathToFileURL } from "node:url";
+import { mkdir, rename, writeFile } from "node:fs/promises";
+import { dirname, join } from "node:path";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { createHash } from "node:crypto";
 import type { AudioArtifact, InstrumentLabel, MidiArtifact, OpenDawSessionArtifact } from "../pipeline/types.ts";
 import { assertSupportedWorkflowWav, parseWavFormat } from "../audio/wav.ts";
@@ -165,6 +165,42 @@ export class FileArtifactStore {
       sourceArtifactIds: input.sourceArtifactIds,
       ...(input.metadata === undefined ? {} : { metadata: input.metadata })
     });
+  }
+
+  async renameAudioArtifact<Kind extends AudioArtifact["kind"]>(
+    artifact: AudioArtifact & { kind: Kind },
+    filename: string,
+    metadata?: Record<string, string | number | boolean>
+  ): Promise<AudioArtifact & { kind: Kind }> {
+    const storedFilename = safeFilename(filename).replace(/\.wav$/i, "") + ".wav";
+
+    if (!artifact.uri.startsWith("file://")) {
+      return {
+        ...artifact,
+        filename: storedFilename,
+        metadata: {
+          ...artifact.metadata,
+          ...(metadata ?? {})
+        }
+      };
+    }
+
+    const sourcePath = fileURLToPath(artifact.uri);
+    const targetPath = join(dirname(sourcePath), storedFilename);
+
+    if (targetPath !== sourcePath) {
+      await rename(sourcePath, targetPath);
+    }
+
+    return {
+      ...artifact,
+      uri: pathToFileURL(targetPath).href,
+      filename: storedFilename,
+      metadata: {
+        ...artifact.metadata,
+        ...(metadata ?? {})
+      }
+    };
   }
 
   async saveMidiArtifact(input: StoreMidiArtifactInput): Promise<StoredMidiArtifact> {

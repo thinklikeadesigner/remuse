@@ -105,6 +105,16 @@ export class FileJobStore {
     return record;
   }
 
+  async cancel(jobId: string, error: JobError): Promise<PipelineJobRecord> {
+    const record = await this.require(jobId);
+    record.status = "cancelled";
+    record.error = error;
+    delete record.pendingInstrumentReview;
+    record.updatedAt = nowIso();
+    await this.write(record);
+    return record;
+  }
+
   private async require(jobId: string): Promise<PipelineJobRecord> {
     const record = await this.get(jobId);
     if (record === undefined) {

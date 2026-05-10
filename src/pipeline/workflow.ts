@@ -12,7 +12,6 @@ import type {
   ProviderContext
 } from "./types.ts";
 import { isSupportedWorkflowWav } from "./formats.ts";
-import { needsHumanInstrumentReview } from "./naming.ts";
 
 function nowIso(): string {
   return new Date().toISOString();
@@ -178,29 +177,15 @@ export async function runPipeline(
   }
   await runtime.succeed("instrument-label-normalization", `Accepted provider labels for ${labeledStems.length} stems.`);
 
-  const reviewStems = labeledStems.filter((stem) => needsHumanInstrumentReview(stem.label));
-  if (reviewStems.length > 0) {
-    await runtime.start("manual-instrument-review", `Preparing human review for ${reviewStems.length} non-specific stem(s).`);
-    throw new ManualInstrumentReviewRequiredError(
-      {
-        jobId: input.jobId,
-        inputAudio: input.inputAudio,
-        instrumentStems,
-        events: runtime.events
-      },
-      reviewStems
-    );
-  }
-
-  return finishPipelineFromLabeledStems(
+  await runtime.start("manual-instrument-review", `Preparing human review for ${labeledStems.length} stem(s).`);
+  throw new ManualInstrumentReviewRequiredError(
     {
       jobId: input.jobId,
       inputAudio: input.inputAudio,
       instrumentStems,
       events: runtime.events
     },
-    providers,
-    runtime
+    labeledStems
   );
 }
 
