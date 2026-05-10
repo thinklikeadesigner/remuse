@@ -153,6 +153,11 @@ export type BounceResult = {
   diagnosticTrackBounces?: DiagnosticTrackBounce[];
 };
 
+export type OpenDawRenderTarget = {
+  frameCount?: number;
+  durationSeconds?: number;
+};
+
 export type PipelineStepName =
   | "validate-input"
   | "de-reverb"
@@ -235,7 +240,7 @@ export interface OpenDawProvider {
     midiFiles: MidiArtifact[],
     context: ProviderContext
   ): Promise<OpenDawSessionResult>;
-  bounceSession(session: OpenDawSessionArtifact, context: ProviderContext): Promise<BounceResult>;
+  bounceSession(session: OpenDawSessionArtifact, context: ProviderContext, renderTarget?: OpenDawRenderTarget): Promise<BounceResult>;
 }
 
 export type PipelineProviders = {

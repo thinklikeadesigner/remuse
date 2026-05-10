@@ -2,11 +2,13 @@ import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { renderSessionPreviewBounceWav } from "../../audio/sessionPreviewBounce.ts";
+import { fitPcmWavToFrameCount } from "../../audio/wavDuration.ts";
 import type {
   BounceResult,
   DiagnosticTrackBounce,
   MidiArtifact,
   OpenDawProvider,
+  OpenDawRenderTarget,
   OpenDawSessionArtifact,
   OpenDawSessionResult,
   OpenDawTrackPlan,
@@ -132,6 +134,26 @@ function trackPlan(track: SessionTrackDocument, midiFile: MidiArtifact): OpenDaw
   };
 }
 
+function normalizeRenderedWav(bytes: Buffer, renderTarget: OpenDawRenderTarget | undefined): Buffer {
+  if (renderTarget?.frameCount === undefined) {
+    return bytes;
+  }
+
+  return fitPcmWavToFrameCount(bytes, renderTarget.frameCount);
+}
+
+function renderTargetMetadata(renderTarget: OpenDawRenderTarget | undefined): Record<string, string | number | boolean> {
+  if (renderTarget === undefined) {
+    return {};
+  }
+
+  return {
+    renderDurationNormalized: renderTarget.frameCount !== undefined,
+    ...(renderTarget.frameCount === undefined ? {} : { targetFrameCount: renderTarget.frameCount }),
+    ...(renderTarget.durationSeconds === undefined ? {} : { targetDurationSeconds: renderTarget.durationSeconds })
+  };
+}
+
 async function readSessionDocument(session: OpenDawSessionArtifact): Promise<ReproducibleSessionDocument> {
   const url = new URL(session.uri);
   if (url.protocol !== "file:") {
@@ -213,7 +235,11 @@ export class LocalOpenDawSessionProvider implements OpenDawProvider {
     };
   }
 
-  async bounceSession(session: OpenDawSessionArtifact, context: ProviderContext): Promise<BounceResult> {
+  async bounceSession(
+    session: OpenDawSessionArtifact,
+    context: ProviderContext,
+    renderTarget?: OpenDawRenderTarget
+  ): Promise<BounceResult> {
     const document = await readSessionDocument(session);
     const renderResult: FluidSynthRenderResult =
       this.renderBackend.mode === "fluidsynth"
@@ -260,14 +286,15 @@ export class LocalOpenDawSessionProvider implements OpenDawProvider {
         stage: "diagnostic-track-bounces",
         kind: "diagnostic-track-bounce",
         filename: diagnosticTrackFilename(session, track),
-        bytes: trackRender.bytes,
+        bytes: normalizeRenderedWav(trackRender.bytes, renderTarget),
         sourceArtifactIds: [session.id, track.midi.artifactId],
         metadata: {
           provider: providerName,
           diagnostic: true,
           ...trackRender.metadata,
           midiArtifactId: track.midi.artifactId,
-          midiFilename: track.midi.filename
+          midiFilename: track.midi.filename,
+          ...renderTargetMetadata(renderTarget)
         }
       });
 
@@ -289,14 +316,15 @@ export class LocalOpenDawSessionProvider implements OpenDawProvider {
       stage: "bounce",
       kind: "stereo-bounce",
       filename,
-      bytes: renderResult.bytes,
+      bytes: normalizeRenderedWav(renderResult.bytes, renderTarget),
       sourceArtifactIds: [session.id],
       metadata: {
         provider: providerName,
         ...renderResult.metadata,
         targetFormat: document.render.targetFormat,
         headlessOpenDawRenderer: false,
-        diagnosticTrackBounceCount: diagnosticTrackBounces.length
+        diagnosticTrackBounceCount: diagnosticTrackBounces.length,
+        ...renderTargetMetadata(renderTarget)
       }
     });
 

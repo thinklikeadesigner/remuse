@@ -5,6 +5,7 @@ import type {
   PipelineManualReviewState,
   PipelineJobInput,
   PipelineJobResult,
+  OpenDawRenderTarget,
   PipelineProviders,
   PipelineStepEvent,
   PipelineStepName,
@@ -76,6 +77,24 @@ function requireLabeledStems(instrumentStems: InstrumentStem[]): Array<Instrumen
   return labeledStems;
 }
 
+function renderTargetForState(state: PipelineManualReviewState): OpenDawRenderTarget | undefined {
+  const dataBytes = state.inputAudio.metadata.dataBytes;
+  const bytesPerFrame = state.inputAudio.format.channels * (state.inputAudio.format.bitDepth / 8);
+  const frameCount =
+    typeof dataBytes === "number" && Number.isFinite(dataBytes) && bytesPerFrame > 0
+      ? Math.floor(dataBytes / bytesPerFrame)
+      : undefined;
+
+  if (frameCount === undefined && state.inputAudio.durationSeconds === undefined) {
+    return undefined;
+  }
+
+  return {
+    ...(frameCount === undefined ? {} : { frameCount }),
+    ...(state.inputAudio.durationSeconds === undefined ? {} : { durationSeconds: state.inputAudio.durationSeconds })
+  };
+}
+
 async function finishPipelineFromLabeledStems(
   state: PipelineManualReviewState,
   providers: PipelineProviders,
@@ -97,7 +116,7 @@ async function finishPipelineFromLabeledStems(
   await runtime.succeed("opendaw-midi-import", `Imported ${opendaw.tracks.length} MIDI tracks.`);
 
   await runtime.start("opendaw-bounce", "Rendering stereo WAV PCM 16-bit, 44.1 kHz bounce.");
-  const bounce = await providers.opendaw.bounceSession(opendaw.session, runtime.context);
+  const bounce = await providers.opendaw.bounceSession(opendaw.session, runtime.context, renderTargetForState(state));
   await runtime.succeed("opendaw-bounce", `Created final bounce ${bounce.bounce.filename}.`);
 
   return {

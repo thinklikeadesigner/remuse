@@ -23,6 +23,7 @@ test("job backend accepts WAV upload, tracks state, and exposes mock pipeline re
       })
   });
   const upload = createPcmWavFixture();
+  const uploadParsed = parseWavFormat(upload);
 
   const created = (await app.api.createJobFromUpload({
     bytes: upload,
@@ -52,7 +53,7 @@ test("job backend accepts WAV upload, tracks state, and exposes mock pipeline re
     jobId: string;
     inputAudio: { filename: string };
     midi: { midiFiles: Array<{ filename: string }> };
-    bounce: { bounce: { filename: string; format: { bitDepth: number } } };
+    bounce: { bounce: { filename: string; format: { bitDepth: number }; metadata: Record<string, unknown> } };
   };
 
   assert.equal(result.jobId, created.jobId);
@@ -63,7 +64,11 @@ test("job backend accepts WAV upload, tracks state, and exposes mock pipeline re
 
   const bounce = await app.api.getJobBounce(created.jobId);
   assert.equal(bounce.filename, result.bounce.bounce.filename);
-  assert.equal(parseWavFormat(bounce.bytes).format.bitDepth, 16);
+  const bounceParsed = parseWavFormat(bounce.bytes);
+  assert.equal(bounceParsed.format.bitDepth, 16);
+  assert.equal(bounceParsed.dataBytes, uploadParsed.dataBytes);
+  assert.equal(result.bounce.bounce.metadata.renderDurationNormalized, true);
+  assert.equal(result.bounce.bounce.metadata.targetFrameCount, 8);
 });
 
 test("review page shows live progress while a job is active", async () => {

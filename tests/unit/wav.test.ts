@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { assertCanonicalInternalWav, assertSupportedWorkflowWav, parseWavFormat } from "../../src/audio/wav.ts";
+import { fitPcmWavToFrameCount } from "../../src/audio/wavDuration.ts";
 import { createPcmWavFixture } from "../helpers/wavFixture.ts";
 
 test("parseWavFormat reads canonical 16-bit 44.1 kHz PCM WAV metadata", () => {
@@ -24,4 +25,16 @@ test("assertCanonicalInternalWav rejects non-canonical bit depth", () => {
     () => assertCanonicalInternalWav(createPcmWavFixture({ bitDepth: 24 })),
     /Canonical audio must be 16-bit PCM WAV/
   );
+});
+
+test("fitPcmWavToFrameCount pads and trims PCM WAV data", () => {
+  const short = fitPcmWavToFrameCount(createPcmWavFixture({ frames: 3 }), 5);
+  const shortParsed = parseWavFormat(short);
+  assert.equal(shortParsed.dataBytes, 5 * 2 * 2);
+  assert.equal(shortParsed.durationSeconds, 5 / 44100);
+
+  const long = fitPcmWavToFrameCount(createPcmWavFixture({ frames: 5 }), 2);
+  const longParsed = parseWavFormat(long);
+  assert.equal(longParsed.dataBytes, 2 * 2 * 2);
+  assert.equal(longParsed.durationSeconds, 2 / 44100);
 });
