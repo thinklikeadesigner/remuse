@@ -1,7 +1,7 @@
 {
   "name": "remuse",
   "version": "0.1.0",
-  "description": "Audio de-reverb, stem-to-MIDI, and OpenDAW session orchestration scaffold.",
+  "description": "WAV stem separation, manual review, stem-to-MIDI, and session-render orchestration.",
   "type": "module",
   "private": false,
   "scripts": {

@@ -50,18 +50,19 @@ Initial mappings:
 
 | ReMuse key | OpenDAW target |
 | --- | --- |
-| `lead-vocal-synth` | General MIDI Voice Oohs |
-| `backing-vocal-synth` | General MIDI Synth Voice |
-| `vocal-synth` | General MIDI Voice Oohs |
-| `studio-drums` | General MIDI Standard Drum Kit |
-| `electric-bass` | General MIDI Acoustic Bass |
-| `clean-electric-guitar` | General MIDI Clean Electric Guitar |
-| `grand-piano` | General MIDI Acoustic Grand Piano |
+| `lead-vocal-synth` | General MIDI Solo Vox |
+| `backing-vocal-synth` | General MIDI Voice Oohs |
+| `vocal-synth` | General MIDI Solo Vox |
+| `studio-drums` | General MIDI Jazz Drum Kit on percussion bank 128 |
+| `electric-bass` | General MIDI Acoustic/Upright Bass |
+| `clean-electric-guitar` | General MIDI Jazz Guitar |
+| `grand-piano` | General MIDI Stereo Grand Piano |
 | `tonewheel-organ` | General MIDI Drawbar Organ |
-| `studio-strings` | General MIDI String Ensemble |
-| `studio-winds` | General MIDI Flute |
-| `analog-synth` | General MIDI Square Lead |
-| `world-percussion` | General MIDI Standard Drum Kit |
+| `studio-strings` | General MIDI Stereo Strings Fast |
+| `studio-brass` | General MIDI Brass Section |
+| `studio-winds` | General MIDI Tenor Sax |
+| `analog-synth` | General MIDI Warm Pad |
+| `world-percussion` | General MIDI Jazz Drum Kit on percussion bank 128 |
 
 Missing or unknown keys fall back to `general-midi-fallback` and record a fallback reason.
 
@@ -92,6 +93,7 @@ Optional settings:
 
 - `REMUSE_FLUIDSYNTH_COMMAND`: path/name of the `fluidsynth` executable. Defaults to `fluidsynth`.
 - `REMUSE_FLUIDSYNTH_TIMEOUT_MS`: render timeout. Defaults to five minutes.
+- `REMUSE_FLUIDSYNTH_TRACK_DIAGNOSTICS`: set `1` to render one diagnostic WAV per MIDI track.
 
 When this mode is active, `LocalOpenDawSessionProvider.bounceSession(...)`:
 

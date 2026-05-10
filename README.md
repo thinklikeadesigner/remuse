@@ -1,30 +1,64 @@
-# Remuse
+# ReMuse
 
-Remuse is an audio-to-MIDI/OpenDAW application scaffold. The target workflow accepts WAV PCM 16-bit or 24-bit, 44.1 kHz audio, separates reverb and instrument stems through external providers, accepts provider-native instrument labels, pauses for human review of non-specific stems, converts labeled stems to MIDI, builds an OpenDAW session, assigns sample libraries, and returns a stereo WAV PCM 16-bit, 44.1 kHz bounce.
+ReMuse is a local TypeScript application for turning an uploaded WAV file into a MIDI-driven stereo remix. It accepts WAV PCM 16-bit or 24-bit, 44.1 kHz input, separates stems through a provider adapter, asks the user to review every returned stem, converts accepted stems to MIDI, assembles an OpenDAW-style session plan, maps instruments to SoundFont sample libraries, and returns a WAV PCM 16-bit, 44.1 kHz stereo bounce.
 
-The repo also contains high-intensity multi-agent sprint configuration. It is built around one orchestration agent, parallel development and testing agents, dedicated review agents, and a separate Git worktree for every agent.
+The current production-test path is:
+
+```text
+landing page WAV upload
+-> validate WAV format
+-> de-reverb step skipped
+-> stem separation from original uploaded WAV
+-> provider label normalization
+-> manual review of every stem
+-> MIDI conversion
+-> ReMuse/OpenDAW-style session assembly
+-> sample-library mapping
+-> preview or FluidSynth stereo WAV bounce
+```
+
+The repo also contains the original high-intensity multi-agent sprint configuration: one orchestration agent, parallel development and testing agents, dedicated review agents, and individual git worktrees for each agent.
+
+## Current Capabilities
+
+- Landing page at `/` with a demo video, WAV drag-and-drop upload, job progress, diagnostic track playback, and final bounce playback.
+- Static demo assets served from `src/demo/output/` through `/output/<filename>`, including MP4 byte-range support for browser playback.
+- File-backed job backend with `queued`, `running`, `awaiting-review`, `succeeded`, `failed`, and `cancelled` statuses.
+- Manual Review page that opens when review begins, plays the full audio for every separated stem, lets the user assign an instrument or discard each stem, and resumes only after `Complete Review`.
+- All-discard protection: if every stem is discarded, the browser asks for confirmation and the backend records the job as `cancelled`.
+- Stem separation providers:
+  - Mock provider for deterministic local tests.
+  - MVSEP BS Roformer SW.
+  - LALAL.AI multistem split.
+- MIDI providers:
+  - Mock MIDI provider.
+  - Spotify Basic Pitch local CLI.
+  - Provider-neutral HTTP adapter for future cloud MIDI services.
+- OpenDAW/session providers:
+  - Mock provider.
+  - Local session provider that writes a reproducible `.opendaw.json` plan.
+  - Preview renderer.
+  - Optional FluidSynth renderer for a functioning SoundFont-backed WAV bounce.
 
 ## Layout
 
+- `src/demo/demo.html` - landing page, upload UI, progress panel, diagnostic track playback, and demo video.
 - `src/pipeline/` - shared TypeScript interfaces, naming helpers, and workflow runner.
-- `src/server/` - mock-backed job API for WAV uploads, job state, and pipeline results.
+- `src/server/` - job API, review UI, result routes, and demo asset serving.
 - `src/jobs/` - file-backed job records and the pipeline job runner.
 - `src/storage/` - file-backed artifact storage.
-- `src/providers/mock/` - deterministic mock providers for the full audio-to-MIDI/OpenDAW flow.
-- `src/providers/midi/` - Basic Pitch and provider-neutral HTTP MIDI conversion adapters.
-- `src/providers/opendaw/` - file-backed OpenDAW session assembly, sample-library mapping, and preview bounce adapter.
-- `src/demo/runMockPipeline.ts` - smoke demo for the mock pipeline.
-- `tests/unit/` - initial unit test scaffold.
+- `src/audio/` - WAV parsing, review audio, residual rendering, and preview bounce helpers.
+- `src/providers/mock/` - deterministic providers for local tests.
+- `src/providers/mvsep/` - MVSEP de-reverb adapter and active BS Roformer SW stem adapter.
+- `src/providers/lalal/` - LALAL.AI upload, multistem split, polling, and download adapter.
+- `src/providers/midi/` - Basic Pitch and HTTP MIDI conversion adapters.
+- `src/providers/opendaw/` - local session assembly, sample-library mapping, preview render, and FluidSynth render support.
+- `contracts/external-audio-services.openapi.yaml` - normalized external audio provider contract.
+- `docs/` - architecture notes, decision log, demo runbook, and sprint docs.
 - `config/audio-midi-sprint.yaml` - source of truth for the audio application agent roster.
-- `contracts/external-audio-services.openapi.yaml` - normalized HTTP contract for external audio processing providers.
-- `config/hackathon-sprint.yaml` - source of truth for agents, worktrees, branches, ownership, cadence, and merge policy.
-- `docs/architecture/audio-midi-pipeline.md` - application architecture overview.
-- `docs/architecture/opendaw-integration-spike.md` - Phase 0 OpenDAW SDK/API findings.
-- `docs/architecture/phase-0-provider-contracts.md` - provider contract decisions and acceptance criteria.
-- `docs/agents/audio-midi-agent-map.md` - branch and worktree map for the application agents.
-- `docs/sprint-operating-model.md` - operating rules for the sprint.
-- `scripts/create_audio_app_worktrees.sh` - creates or reuses all domain-specific application agent worktrees.
-- `scripts/create_worktrees.sh` - recreates all agent worktrees from the config's branch plan.
+- `config/hackathon-sprint.yaml` - original generic hackathon agent roster.
+- `scripts/create_audio_app_worktrees.sh` - creates or reuses application agent worktrees.
+- `scripts/create_worktrees.sh` - recreates the original scaffold worktrees.
 - `scripts/status.sh` - prints the current worktree and branch inventory.
 
 Agent worktrees live beside this repo at:
@@ -41,52 +75,6 @@ Install dependencies:
 npm install
 ```
 
-Run the mock pipeline:
-
-```bash
-npm run demo:mock
-```
-
-Run the mock job backend:
-
-```bash
-npm run server:mock
-```
-
-Run with local Spotify Basic Pitch MIDI conversion:
-
-```bash
-npm run demo:basic-pitch
-```
-
-For full job-server testing, combine Basic Pitch with file-backed upstream stems, currently MVSEP:
-
-```bash
-REMUSE_PROVIDER=mvsep MVSEP_API_TOKEN=<token> REMUSE_MIDI_PROVIDER=basic-pitch npm run server:mock
-```
-
-The job server uses `REMUSE_OPENDAW_PROVIDER=local-session` by default. This writes a reproducible `.opendaw.json` session artifact, maps every MIDI track to a sample-library assignment, and renders a valid stereo WAV PCM 16-bit, 44.1 kHz preview bounce. Set `REMUSE_OPENDAW_PROVIDER=mock` to return to the older in-memory mock OpenDAW path.
-
-Use FluidSynth as the functioning MIDI render backend by installing `fluidsynth`, downloading a General MIDI `.sf2` SoundFont, and starting the server with:
-
-```bash
-REMUSE_OPENDAW_RENDERER=fluidsynth \
-REMUSE_FLUIDSYNTH_SOUNDFONT=/absolute/path/to/soundfont.sf2 \
-npm run server:mock
-```
-
-Optionally set `REMUSE_FLUIDSYNTH_COMMAND=/path/to/fluidsynth` if the binary is not on `PATH`.
-
-Run the headless browser OpenDAW proof harness:
-
-```bash
-npm run opendaw:browser-spike -- --browser-executable "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
-```
-
-The harness creates a real OpenDAW project, creates soundfont-backed MIDI tracks, imports MIDI notes, applies sample-library presets, serializes the native OpenDAW project, and writes a 16-bit/44.1 kHz stereo WAV proof bounce under `var/opendaw-browser-spike/<timestamp>/session/`.
-
-The backend stores local runtime artifacts under `var/remuse/` by default. Submit a WAV PCM 16-bit or 24-bit, 44.1 kHz file with `POST /v1/jobs`, then poll `GET /v1/jobs/<job-id>` and fetch the completed result with `GET /v1/jobs/<job-id>/result`. The `GET /review/<job-id>` page shows live job progress while the pipeline is active. The local server opens that page in the OS default browser as soon as a job is submitted, so you can watch progress from the beginning and then play review clips, label useful stems, or discard unusable/duplicate stems if manual review is needed. Set `REMUSE_AUTO_OPEN_REVIEW=0` to disable auto-open, or set `REMUSE_PUBLIC_BASE_URL` if the browser should use a non-default host/port.
-
 Type-check and test:
 
 ```bash
@@ -94,19 +82,170 @@ npm run check
 npm test
 ```
 
-## Integration Spike
+Run the mock pipeline without the HTTP server:
 
-Phase 0 artifacts:
+```bash
+npm run demo:mock
+```
 
+Run the local job server:
+
+```bash
+npm run server:mock
+```
+
+Open the landing page at:
+
+```text
+http://localhost:3000/
+```
+
+Runtime artifacts are stored under `var/remuse/` by default. Override this with `REMUSE_DATA_DIR`.
+
+## Server Configuration
+
+Useful server environment variables:
+
+| Variable | Default | Notes |
+| --- | --- | --- |
+| `PORT` | `3000` | HTTP server port. |
+| `REMUSE_DATA_DIR` | `var/remuse` | Job records and artifacts root. |
+| `REMUSE_PUBLIC_BASE_URL` | `http://localhost:<PORT>` | Browser URL used for auto-open review tabs. |
+| `REMUSE_AUTO_OPEN_REVIEW` | enabled | Set `0` to stop opening the Manual Review tab automatically. |
+
+The server opens `/review/<job-id>` only when the job reaches Manual Review. It no longer opens a progress tab immediately on upload.
+
+## Provider Modes
+
+Mock mode is the default and requires no secrets:
+
+```bash
+npm run server:mock
+```
+
+Use MVSEP for stem separation:
+
+```bash
+REMUSE_PROVIDER=mvsep \
+MVSEP_API_TOKEN=<token> \
+npm run server:mock
+```
+
+Use LALAL.AI for stem separation:
+
+```bash
+REMUSE_STEM_PROVIDER=lalal \
+LALAL_LICENSE_KEY=<license-key> \
+npm run server:mock
+```
+
+Use Basic Pitch for MIDI conversion with file-backed stems:
+
+```bash
+REMUSE_PROVIDER=mvsep \
+MVSEP_API_TOKEN=<token> \
+REMUSE_MIDI_PROVIDER=basic-pitch \
+npm run server:mock
+```
+
+or:
+
+```bash
+REMUSE_STEM_PROVIDER=lalal \
+LALAL_LICENSE_KEY=<license-key> \
+REMUSE_MIDI_PROVIDER=basic-pitch \
+npm run server:mock
+```
+
+Run the Basic Pitch smoke test:
+
+```bash
+npm run demo:basic-pitch
+```
+
+Use FluidSynth for the final bounce:
+
+```bash
+REMUSE_OPENDAW_RENDERER=fluidsynth \
+REMUSE_FLUIDSYNTH_SOUNDFONT=/absolute/path/to/general-midi.sf2 \
+npm run server:mock
+```
+
+Optional FluidSynth settings:
+
+- `REMUSE_FLUIDSYNTH_COMMAND`: path/name of the `fluidsynth` executable.
+- `REMUSE_FLUIDSYNTH_TIMEOUT_MS`: render timeout, default five minutes.
+- `REMUSE_FLUIDSYNTH_TRACK_DIAGNOSTICS`: set `1` to render one WAV diagnostic bounce per MIDI track.
+
+## HTTP API
+
+Submit a WAV file:
+
+```bash
+curl -X POST http://localhost:3000/v1/jobs \
+  -H "content-type: audio/wav" \
+  -H "x-filename: source.wav" \
+  --data-binary @source.wav
+```
+
+Poll job status:
+
+```bash
+curl http://localhost:3000/v1/jobs/<job-id>
+```
+
+Open job progress or Manual Review:
+
+```text
+http://localhost:3000/review/<job-id>
+```
+
+Fetch result JSON after success:
+
+```bash
+curl http://localhost:3000/v1/jobs/<job-id>/result
+```
+
+Fetch final bounce after success:
+
+```bash
+curl http://localhost:3000/v1/jobs/<job-id>/bounce --output remuse-bounce.wav
+```
+
+## Manual Review
+
+Every separated stem is surfaced to the user before MIDI conversion. The provider label is used as the default when it maps cleanly into ReMuse's instrument taxonomy; generic `vocals` defaults to `Lead Vocals`. The user can change any assignment before completing review.
+
+Manual choices:
+
+- Lead Vocals
+- Backing Vocals
+- Drums
+- Bass
+- Guitar
+- Piano
+- Brass
+- Woodwinds
+- Strings
+- Percussion
+- Organ
+- Synthesizer
+
+The Manual Review page streams the full stem audio for each review card. The `Complete Review` button stays disabled until every stem has an instrument assignment or has been discarded. Accepted stems are physically renamed in the artifact store with the selected instrument, and discarded stems are removed from the active MIDI workflow. If all stems are discarded, ReMuse records the job as `cancelled`.
+
+## Architecture Docs
+
+- [Audio-to-MIDI pipeline](docs/architecture/audio-midi-pipeline.md)
+- [Phase 0 provider contracts](docs/architecture/phase-0-provider-contracts.md)
 - [OpenDAW integration spike](docs/architecture/opendaw-integration-spike.md)
-- [External provider contracts](docs/architecture/phase-0-provider-contracts.md)
-- [OpenAPI contract](contracts/external-audio-services.openapi.yaml)
-- [Phase 1 core pipeline skeleton](docs/architecture/phase-1-core-pipeline.md)
+- [Phase 1 core pipeline](docs/architecture/phase-1-core-pipeline.md)
 - [Provider selection](docs/architecture/provider-selection.md)
 - [Phase 2 audio processing integrations](docs/architecture/phase-2-audio-processing-integrations.md)
 - [Phase 3 instrument label normalization](docs/architecture/phase-3-instrument-label-normalization.md)
 - [Phase 4 MIDI conversion](docs/architecture/phase-4-midi-conversion.md)
 - [Phase 5 OpenDAW session assembly](docs/architecture/phase-5-opendaw-session-assembly.md)
+- [Demo runbook](docs/demo-runbook.md)
+- [Decision log](docs/decision-log.md)
 
 ## Audio Application Agents
 
@@ -134,30 +273,6 @@ Create or refresh the audio app agent worktrees:
 ./scripts/create_audio_app_worktrees.sh
 ```
 
-## Original Hackathon Agents
-
-| Lane | Agent | Branch | Worktree |
-| --- | --- | --- | --- |
-| Orchestration | `sprint-orchestrator` | `agent/sprint-orchestrator` | `../hackathon-agent-worktrees/sprint-orchestrator` |
-| Development | `frontend-dev` | `agent/frontend-dev` | `../hackathon-agent-worktrees/frontend-dev` |
-| Development | `backend-api-dev` | `agent/backend-api-dev` | `../hackathon-agent-worktrees/backend-api-dev` |
-| Development | `ai-workflows-dev` | `agent/ai-workflows-dev` | `../hackathon-agent-worktrees/ai-workflows-dev` |
-| Development | `platform-infra-dev` | `agent/platform-infra-dev` | `../hackathon-agent-worktrees/platform-infra-dev` |
-| Testing | `qa-automation` | `agent/qa-automation` | `../hackathon-agent-worktrees/qa-automation` |
-| Testing | `e2e-performance-test` | `agent/e2e-performance-test` | `../hackathon-agent-worktrees/e2e-performance-test` |
-| Testing | `security-regression-test` | `agent/security-regression-test` | `../hackathon-agent-worktrees/security-regression-test` |
-| Review | `architecture-review` | `agent/architecture-review` | `../hackathon-agent-worktrees/architecture-review` |
-| Review | `code-review` | `agent/code-review` | `../hackathon-agent-worktrees/code-review` |
-| Review | `release-readiness-review` | `agent/release-readiness-review` | `../hackathon-agent-worktrees/release-readiness-review` |
-
-## Quick Commands
-
-Create or refresh the agent worktrees:
-
-```bash
-./scripts/create_worktrees.sh
-```
-
 Show current worktree state:
 
 ```bash
@@ -169,7 +284,3 @@ List worktrees directly:
 ```bash
 git worktree list
 ```
-
-## Merge Rhythm
-
-Agents work on their own `agent/<id>` branches. The `sprint-orchestrator` coordinates handoffs and opens integration batches into `main`. Review agents inspect those batches before anything is merged into `main` or the final `release/demo` branch.

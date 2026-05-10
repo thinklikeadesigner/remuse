@@ -1,55 +1,77 @@
-# Audio-to-MIDI OpenDAW Pipeline Architecture
+# Audio-to-MIDI ReMuse Pipeline Architecture
 
-This application converts WAV PCM 16-bit or 24-bit, 44.1 kHz audio into a new WAV PCM 16-bit, 44.1 kHz stereo bounce generated from MIDI tracks inside an OpenDAW session.
+ReMuse converts WAV PCM 16-bit or 24-bit, 44.1 kHz input into a new WAV PCM 16-bit, 44.1 kHz stereo bounce generated from reviewed stem-to-MIDI tracks.
 
-## First Scaffold Goal
-
-The initial implementation is intentionally provider-neutral. Every external service is represented by a TypeScript interface and a mock provider. This lets agents build and test the full workflow before API credentials and exact provider contracts are finalized.
-
-## Pipeline
+## Current Workflow
 
 ```text
 input WAV PCM 16-bit or 24-bit / 44.1 kHz
 -> validate format
--> de-reverb split, currently bypassed
--> original input instrument stem separation
--> instrument label normalization and optional human review
--> stem-to-MIDI conversion
--> OpenDAW blank session creation
--> MIDI import and sample-library assignment
--> stereo WAV PCM 16-bit / 44.1 kHz bounce
+-> skip de-reverb
+-> send original input to stem separation
+-> normalize provider stem labels
+-> manual review of every returned stem
+-> convert accepted stems to MIDI
+-> create a ReMuse/OpenDAW-style session artifact
+-> map instruments to SoundFont sample libraries
+-> render a stereo WAV PCM 16-bit / 44.1 kHz bounce
 ```
+
+The de-reverb adapter still exists, but the main workflow bypasses it while stem-separation quality is being evaluated on the original user upload.
+
+## Runtime Surfaces
+
+- Landing page: `GET /`.
+- Demo assets: `GET /output/<filename>`, with MP4 byte-range support.
+- Job upload: `POST /v1/jobs`.
+- Job status: `GET /v1/jobs/<job-id>`.
+- Review/status page: `GET /review/<job-id>`.
+- Review audio: `GET /v1/jobs/<job-id>/review-requests/<review-id>/clip`.
+- Result JSON: `GET /v1/jobs/<job-id>/result`.
+- Final bounce: `GET /v1/jobs/<job-id>/bounce`.
+- Diagnostic track bounces: `GET /v1/jobs/<job-id>/diagnostic-track-bounces`.
 
 ## Core Boundaries
 
-- `src/pipeline/types.ts` contains shared contracts for artifacts, provider interfaces, job input, job result, and OpenDAW track plans.
-- `src/pipeline/workflow.ts` runs the current sequential pipeline.
-- `src/pipeline/naming.ts` normalizes instrument labels and MIDI filenames.
-- `src/server/http.ts` exposes the Phase 1 job API for upload, status, and result retrieval.
-- `src/jobs/**` persists job state and runs the pipeline from queued jobs.
-- `src/storage/**` persists validated input artifacts with checksum metadata.
-- `src/providers/mock/**` implements deterministic mock providers for local development and test scaffolding.
-- `src/providers/midi/**` implements Spotify Basic Pitch and provider-neutral HTTP MIDI conversion adapters.
-- `src/providers/opendaw/**` implements file-backed OpenDAW session assembly, sample-library mapping, and preview bounce export.
-- Real providers should match the mock providers' behavior at the interface boundary.
+- `src/pipeline/types.ts` contains shared artifact, provider, job, review, MIDI, and session contracts.
+- `src/pipeline/workflow.ts` runs the sequential workflow and raises the Manual Review pause.
+- `src/pipeline/naming.ts` normalizes provider labels, manual review options, MIDI filenames, and sample-library keys.
+- `src/server/http.ts` exposes the job API, review UI, result routes, and demo asset route.
+- `src/jobs/**` persists job state and runs or resumes the pipeline.
+- `src/storage/**` persists validated input, stem, MIDI, session, review, diagnostic, and bounce artifacts.
+- `src/audio/**` handles WAV parsing, review audio generation, residual rendering, and deterministic preview bounce synthesis.
+- `src/providers/mock/**` implements deterministic local providers.
+- `src/providers/mvsep/**` implements MVSEP de-reverb and active MVSEP BS Roformer SW stem separation.
+- `src/providers/lalal/**` implements LALAL.AI multistem separation.
+- `src/providers/midi/**` implements Basic Pitch and HTTP MIDI conversion.
+- `src/providers/opendaw/**` implements local session assembly, sample-library mapping, preview rendering, and FluidSynth rendering.
 
 ## Provider Interfaces
 
-- `DereverbProvider`: input WAV to dry-only and reverb-only WAV tracks when de-reverb is active.
-- `InstrumentStemSeparationProvider`: source WAV to individual instrument stems. While de-reverb is bypassed, the source is the original uploaded input.
-- `InstrumentIdentificationProvider`: provider-native labels and filenames to normalized labels; non-specific labels pause for human review.
-- `MidiConversionProvider`: labeled stems to MIDI files with instrument names preserved.
-- `OpenDawProvider`: blank session creation, MIDI import, sample library assignment, and stereo bounce.
+- `DereverbProvider`: input WAV to dry-only and optional reverb-only tracks when de-reverb is active.
+- `InstrumentStemSeparationProvider`: source WAV to individual instrument stems. Currently the source is the original uploaded input.
+- `InstrumentIdentificationProvider`: provider-native labels and filenames to normalized labels. It no longer runs a separate AI classifier.
+- `MidiConversionProvider`: reviewed labeled stems to MIDI files with instrument names preserved.
+- `OpenDawProvider`: session creation, MIDI import, sample-library assignment, and stereo bounce.
 
-The Phase 0 provider contract is captured in `contracts/external-audio-services.openapi.yaml` and summarized in `docs/architecture/phase-0-provider-contracts.md`. Phase 3 instrument labeling is captured in `docs/architecture/phase-3-instrument-label-normalization.md`. Phase 4 MIDI conversion is captured in `docs/architecture/phase-4-midi-conversion.md`. Phase 5 OpenDAW session assembly is captured in `docs/architecture/phase-5-opendaw-session-assembly.md`.
+## Manual Review Boundary
 
-## OpenDAW Integration Notes
+Manual Review is now a required gate for every separated stem. ReMuse creates review requests for all returned stems, streams the full stem audio in the browser, and waits for the user to assign or discard every stem. The pipeline resumes only after `Complete Review`.
 
-Phase 0 findings are captured in `docs/architecture/opendaw-integration-spike.md`. The OpenDAW integration agent should treat runtime proof as the next spike until these operations are proven together in the selected runtime:
+Accepted stems are physically renamed in the artifact store with the manually selected instrument. Discarded stems remain on disk for traceability but are removed from the active MIDI workflow. If the user discards every stem, the job becomes `cancelled`.
 
-- Create a blank session programmatically.
-- Create tracks from a MIDI file list.
-- Assign a sample playback device or library from an instrument label.
-- Render or export a stereo WAV PCM 16-bit, 44.1 kHz bounce.
+## Rendering Boundary
 
-The Phase 5 local-session provider exposes that limitation directly: it creates a reproducible `.opendaw.json` session plan, records track/sample-library assignments, and exports a deterministic stereo WAV preview bounce. A future SDK-backed renderer can replace the preview bounce internals without changing the pipeline provider boundary.
+`LocalOpenDawSessionProvider` is the active provider. It writes a reproducible `.opendaw.json` session plan and then renders through either:
+
+- `preview`: deterministic local synthesis, useful for tests and offline demos.
+- `fluidsynth`: a functioning SoundFont-backed render path using a configured General MIDI `.sf2`.
+
+The browser OpenDAW proof harness remains useful research, but the application path does not currently depend on a real headless OpenDAW engine render.
+
+## Related Docs
+
+- Phase 0 provider contract: `docs/architecture/phase-0-provider-contracts.md`.
+- Phase 3 instrument labeling: `docs/architecture/phase-3-instrument-label-normalization.md`.
+- Phase 4 MIDI conversion: `docs/architecture/phase-4-midi-conversion.md`.
+- Phase 5 session assembly: `docs/architecture/phase-5-opendaw-session-assembly.md`.

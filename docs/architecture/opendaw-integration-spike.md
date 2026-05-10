@@ -81,8 +81,12 @@ The adapter should store both our normalized `sampleLibraryKey` and the OpenDAW 
 - Use OpenDAW as an isolated adapter behind `OpenDawProvider`.
 - Target SoundFont-backed playback first.
 - Use WAV PCM 16-bit, 44.1 kHz as the default final output format.
-- Keep a mock OpenDAW provider until a browser/headless runtime proof passes.
+- Keep the full OpenDAW engine behind the provider boundary until a browser/headless runtime proof can use OpenDAW's own offline engine reliably.
 - Add a follow-up proof script owned by `opendaw-integration-dev` that imports OpenDAW packages, creates a project, creates one soundfont note track from one MIDI file, renders, and records runtime constraints.
+
+## Current Implementation Status
+
+The application path now uses `LocalOpenDawSessionProvider` rather than a full OpenDAW engine render. It writes a reproducible `.opendaw.json` session plan, maps MIDI tracks to SoundFont presets, and renders through either deterministic preview synthesis or FluidSynth. The Playwright/browser OpenDAW harness remains a proof path, not the production server path.
 
 ## Open Questions
 

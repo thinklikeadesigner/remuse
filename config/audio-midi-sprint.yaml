@@ -3,7 +3,7 @@ kind: multi-agent-orchestration
 
 metadata:
   name: remuse-audio-to-midi-opendaw-sprint
-  description: Multi-agent sprint plan for a WAV de-reverb, stem-to-MIDI, and OpenDAW bounce application.
+  description: Multi-agent sprint plan for a WAV stem-separation, manual-review, stem-to-MIDI, and ReMuse/OpenDAW-style bounce application.
   timezone: America/Chicago
   intensity: high
 
@@ -73,9 +73,9 @@ agents:
       worktree: ../hackathon-agent-worktrees/audio-provider-dev
       role: De-reverb, stem separation, and MIDI conversion provider adapters.
       owns:
-        - src/providers/dereverb/**
-        - src/providers/stem-separation/**
-        - src/providers/midi-conversion/**
+        - src/providers/mvsep/**
+        - src/providers/lalal/**
+        - src/providers/midi/**
       deliverables:
         - External API adapters.
         - Provider request/response normalization.
@@ -86,11 +86,12 @@ agents:
       worktree: ../hackathon-agent-worktrees/ai-instrument-dev
       role: Provider label normalization and human instrument review.
       owns:
-        - src/providers/instrument-id/**
+        - src/providers/providerNativeInstrumentIdentificationProvider.ts
         - src/pipeline/naming.ts
+        - src/audio/reviewClip.ts
       deliverables:
         - Provider-native label normalization.
-        - Human review workflow for non-specific stems.
+        - Human review workflow for all separated stems.
         - Filename-safe label preservation.
 
     - id: opendaw-integration-dev
@@ -108,14 +109,15 @@ agents:
     - id: frontend-dev
       branch: agent/frontend-dev
       worktree: ../hackathon-agent-worktrees/frontend-dev
-      role: User upload, progress, and result download experience.
+      role: User upload, progress, manual review, and result playback experience.
       owns:
-        - src/web/**
-        - public/**
+        - src/demo/**
+        - src/server/http.ts
       deliverables:
         - WAV upload UI.
         - Pipeline progress view.
-        - Final bounce download page.
+        - Manual Review UI.
+        - Final bounce playback page.
 
   testing:
     - id: unit-test-agent

@@ -4,16 +4,16 @@ Date: 2026-05-09
 
 ## Decision
 
-Use MVSEP as the first real provider for Phase 2.
+Use MVSEP as the first real stem-separation provider for Phase 2. Keep the MVSEP de-reverb adapter implemented but inactive in the main workflow while ReMuse evaluates stem separation on the original uploaded WAV.
 
-- De-reverb: MVSEP `Reverb Removal (noreverb)`, `sep_type=22`, `add_opt1=0` for `Reverb removal by FoxJoy (MDX23C)`.
+- De-reverb, when re-enabled: MVSEP `Reverb Removal (noreverb)`, `sep_type=22`, `add_opt1=0` for `Reverb removal by FoxJoy (MDX23C)`.
 - Instrument separation: MVSEP `BS Roformer SW (vocals, bass, drums, guitar, piano, other)`, `sep_type=63`, with no additional MVSEP option fields. ReMuse expects the standard output set, at most seven stem artifacts including a possible instrumental aggregate.
 - Output target: request MVSEP `output_format=1`, WAV 16-bit.
 - Demo/privacy setting: always set `is_demo=false`.
 
 Phase 2 implementation note: WAV 16-bit is acceptable throughout the application, so no local conversion back to 24-bit WAV is needed.
 
-This keeps Phase 2 simple because one adapter family can cover both early audio-processing steps. ReMuse currently favors BS Roformer SW over Ensemble All-In to reduce duplicate/over-split stems while preserving the core jazz-oriented targets: vocals, bass, drums, guitar, piano, and other. MVSEP also exposes OpenAPI documentation, API examples, webhooks, direct upload or URL input, a detailed algorithm catalog, and Premium concurrency for queue-sensitive work.
+ReMuse currently favors BS Roformer SW over Ensemble All-In to reduce duplicate/over-split stems while preserving the core jazz-oriented targets: vocals, bass, drums, guitar, piano, and other. MVSEP also exposes OpenAPI documentation, API examples, webhooks, direct upload or URL input, a detailed algorithm catalog, and Premium concurrency for queue-sensitive work.
 
 ## Validation Needed During Adapter Build
 
@@ -31,9 +31,9 @@ AudioShake is the best production-grade backup for instrument separation. Its cu
 
 Neural Analog is the most promising de-reverb backup. Its API has direct file upload, async status polling, downloads, and a `create-stems` endpoint with a `dereverb` preset and 24-bit WAV output. Use it if MVSEP de-reverb either does not expose a usable reverb residual or queues too slowly for the demo.
 
-### General Stem Backup: LALAL.AI
+### Second Stem Provider: LALAL.AI
 
-LALAL.AI has a clean API shape for upload, split, check, and download, plus multi-stem separation. Its de-reverb is documented as voice/vocal-only, so it is not a good primary provider for Remuse's full-mix de-reverb requirement.
+LALAL.AI has been implemented as a second stem-separation provider. It has a clean API shape for upload, split, check, and download, plus multi-stem separation. Its de-reverb is documented as voice/vocal-only, so it is not a good provider for ReMuse's full-mix de-reverb requirement.
 
 ### Not Chosen
 

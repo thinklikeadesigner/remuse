@@ -62,7 +62,7 @@ Acceptance criteria:
 - Empty stem list is invalid for a successful job.
 - Stem order must remain stable for downstream label normalization and MIDI conversion.
 - Provider-native labels and stem filenames are accepted as the primary instrument source.
-- Non-specific provider labels such as `other` and `instrumental` are routed to human review before MIDI conversion.
+- All returned stems are routed to Manual Review before MIDI conversion. Provider-native labels are used as defaults, but the user can relabel or discard any stem.
 
 ### MIDI Conversion
 

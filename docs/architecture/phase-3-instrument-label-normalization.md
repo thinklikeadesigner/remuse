@@ -1,23 +1,28 @@
-# Phase 3: Instrument Label Normalization
+# Phase 3: Instrument Label Normalization And Manual Review
 
 ## Decision
 
-Phase 3 treats provider-native stem labels and provider output filenames as the authoritative signal for instrument labeling.
+ReMuse trusts provider-native stem labels and provider output filenames as the first instrument signal. It normalizes those values into the ReMuse taxonomy and does not run a separate AI/audio classifier.
 
-The current stem-separation providers already name stems with instrument labels or suffixes. ReMuse normalizes those labels into its own instrument taxonomy and does not send stems through a separate AI/audio classifier.
+Manual Review is now mandatory for every separated stem. Provider labels are defaults, not final truth. The user can relabel any stem, discard duplicates or useless stems, and then submit one complete review.
 
 ## Flow
 
 ```text
 provider stem artifact
 -> provider label and filename suffix
--> normalized ReMuse instrument label
+-> normalized ReMuse label default
+-> full-stem Manual Review
+-> accepted/discarded review result
+-> renamed accepted stem artifact
 -> MIDI filename and sample-library key
 ```
 
-## BS Roformer SW Inventory
+## Provider Stem Inventories
 
-The active MVSEP path uses `BS Roformer SW (vocals, bass, drums, guitar, piano, other)`, which usually returns six stems and may include an instrumental aggregate. ReMuse expects no more than seven stem artifacts from this path and treats the following provider stem labels as canonical:
+### MVSEP BS Roformer SW
+
+The active MVSEP stem path uses `BS Roformer SW`, `sep_type=63`, with no algorithm-specific `add_opt` fields. ReMuse expects at most seven stem artifacts:
 
 - `vocals`
 - `instrumental`
@@ -27,9 +32,9 @@ The active MVSEP path uses `BS Roformer SW (vocals, bass, drums, guitar, piano, 
 - `piano`
 - `other`
 
-## LALAL.AI Multistem Inventory
+### LALAL.AI Multistem
 
-The LALAL.AI path uses `/api/v1/split/multistem/` with the documented multistem set. ReMuse requests WAV output and expects at most seven tracks:
+The LALAL.AI path uses `/api/v1/split/multistem/` with WAV output. By default ReMuse requests:
 
 - `vocals`
 - `drum`
@@ -37,30 +42,19 @@ The LALAL.AI path uses `/api/v1/split/multistem/` with the documented multistem 
 - `bass`
 - `electric_guitar`
 - `acoustic_guitar`
-- `no_multistem`
 
-The `no_multistem` remainder track is normalized to `other` so the human review workflow can decide whether to keep, relabel, or discard it.
+LALAL.AI may also return `no_multistem`; ReMuse normalizes that remainder to `other`.
 
-## Confidence Policy
+## Manual Review Options
 
-- Known provider-native labels receive high confidence, for example `bass` -> `bass` with `0.88`.
-- Broad provider buckets such as `other` and `instrum` stay low confidence and create human review requests.
-- Filename-only inference is a fallback when no provider label is present.
-- The user resolves non-specific labels by listening to a non-silent five-second review clip.
+The dropdown contains both provider stem categories and additional manual categories:
 
-## Fallbacks
-
-- `instrum` and `instrumental` normalize to `instrumental`.
-- `other` normalizes to `other`.
-- Unknown names are made filename-safe and routed to review when confidence remains low.
-- MIDI filenames always use the normalized canonical instrument label.
-
-## Human Review
-
-When ReMuse sees a non-specific stem label, it creates a `review-clip` artifact and pauses the job in `awaiting-review`.
-
-The clip generator scans the stem for audio content and extracts a five-second WAV clip around the first non-silent section. The review options are intentionally limited to instruments not already explicitly separated by BS Roformer SW.
-
+- Lead Vocals
+- Backing Vocals
+- Drums
+- Bass
+- Guitar
+- Piano
 - Brass
 - Woodwinds
 - Strings
@@ -68,20 +62,43 @@ The clip generator scans the stem for audio content and extracts a five-second W
 - Organ
 - Synthesizer
 
-Submitting a selection applies a manual label to the stem. Discarding a review removes that stem from the active workflow before MIDI conversion, while leaving the original artifact on disk for debugging. The job resumes once every pending review has either been labeled or discarded.
+Generic provider `vocals` defaults to `Lead Vocals`. There is intentionally no generic `Vocals` option in the dropdown.
+
+## Review Behavior
+
+When stem separation completes, `PipelineJobRunner` creates a review request for every stem and stores a `review-clip` artifact. Despite the historical artifact kind name, this review audio is now the full stem, not a five-second excerpt.
+
+The review page:
+
+- Plays the full stem audio.
+- Shows the provider label.
+- Lets the user assign or change the instrument.
+- Lets the user discard the stem.
+- Keeps choices editable until `Complete Review`.
+- Enables `Complete Review` only after every stem is assigned or discarded.
+- Asks for confirmation if all stems are discarded.
+
+On completion:
+
+- Accepted stems get `method: "manual"` labels.
+- Accepted stem files are physically renamed to include the selected instrument.
+- Discarded stems are removed from the active MIDI workflow.
+- If every stem is discarded, the job becomes `cancelled`.
 
 ## API Surface
 
 - `GET /v1/jobs/<job-id>` includes `pendingInstrumentReviews` when a job is waiting for user input.
-- `GET /review/<job-id>` shows the minimal browser UI for listening, labeling, or discarding pending review stems.
-- `GET /v1/jobs/<job-id>/review-requests` returns the same pending review requests.
-- `GET /v1/jobs/<job-id>/review-requests/<review-id>/clip` returns the WAV review clip.
-- `POST /v1/jobs/<job-id>/review-requests/<review-id>` accepts JSON such as `{ "instrument": "Organ" }` and resumes the job after all pending reviews are resolved.
+- `GET /review/<job-id>` shows live progress and the Manual Review UI.
+- `GET /v1/jobs/<job-id>/review-requests` returns pending review requests.
+- `GET /v1/jobs/<job-id>/review-requests/<review-id>/clip` streams the full-stem WAV review audio.
+- `POST /review/<job-id>/complete` completes the browser review form and resumes or cancels the job.
+- `POST /v1/jobs/<job-id>/review-requests/<review-id>` remains available as a JSON draft/update endpoint but is not the primary UI path.
 
 ## Implementation Notes
 
-- `src/pipeline/naming.ts` contains the shared inference rules.
-- `src/audio/reviewClip.ts` creates non-silent review clips.
-- `src/jobs/pipelineJobRunner.ts` manages `awaiting-review` pause/resume state.
-- `src/providers/mvsep/normalization.ts` delegates MVSEP stem labels to the shared inference helper.
-- `ProviderNativeInstrumentIdentificationProvider` preserves labels already produced during stem separation and only infers missing labels from provider metadata or filenames.
+- `src/pipeline/naming.ts` contains inference rules, manual review options, and default provider-to-manual mappings.
+- `src/audio/reviewClip.ts` creates full-stem review audio and retains the older five-second helper for tests/future use.
+- `src/jobs/pipelineJobRunner.ts` manages `awaiting-review` pause state and review request creation.
+- `src/server/http.ts` applies the completed review, renames accepted artifacts, resumes the pipeline, or records `cancelled`.
+- `src/providers/mvsep/normalization.ts` delegates MVSEP labels to the shared inference helper.
+- `ProviderNativeInstrumentIdentificationProvider` preserves labels already produced during stem separation and infers missing labels from metadata or filenames.

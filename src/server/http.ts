@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { spawn } from "node:child_process";
-import { readFile } from "node:fs/promises";
+import { createReadStream } from "node:fs";
+import { readFile, stat } from "node:fs/promises";
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -61,6 +62,13 @@ const progressStepLabels: Partial<Record<PipelineStepName, string>> = {
   "opendaw-session-create": "Create ReMuse Session",
   "opendaw-midi-import": "MIDI Merge",
   "opendaw-bounce": "Output ReMused File"
+};
+const demoOutputContentTypes: Record<string, string> = {
+  jpg: "image/jpeg",
+  jpeg: "image/jpeg",
+  mp4: "video/mp4",
+  png: "image/png",
+  webp: "image/webp"
 };
 
 export function openUrlWithDefaultBrowser(url: string): Promise<void> {
@@ -130,12 +138,170 @@ function sendAudio(response: ServerResponse, body: Buffer, filename: string): vo
   response.end(body);
 }
 
+function sendStreamError(response: ServerResponse, statusCode: number, message: string): void {
+  if (!response.headersSent) {
+    sendJson(response, statusCode, { error: { message } });
+    return;
+  }
+
+  response.destroy(new Error(message));
+}
+
 async function readDemoPage(): Promise<string> {
   return readFile(join(process.cwd(), "src", "demo", "demo.html"), "utf8");
 }
 
 function isDemoPageRoute(pathname: string): boolean {
   return pathname === "/" || pathname === "/demo" || pathname === "/demo.html";
+}
+
+function routeDemoOutputAsset(pathname: string): string | undefined {
+  const match = pathname.match(/^\/output\/([^/]+)$/);
+  if (match === null) {
+    return undefined;
+  }
+
+  const filename = decodeURIComponent(match[1] ?? "");
+  if (!/^[a-zA-Z0-9._-]+$/.test(filename)) {
+    throw new HttpError(400, "Invalid demo asset filename.");
+  }
+
+  return filename;
+}
+
+function contentTypeForDemoOutputAsset(filename: string): string {
+  const extension = filename.split(".").at(-1)?.toLowerCase() ?? "";
+  return demoOutputContentTypes[extension] ?? "application/octet-stream";
+}
+
+type ByteRange = {
+  start: number;
+  end: number;
+};
+
+export type DemoOutputAssetResponse = {
+  assetPath: string;
+  statusCode: 200 | 206;
+  headers: Record<string, string | number>;
+  range?: ByteRange;
+};
+
+function assertDemoOutputFilename(filename: string): void {
+  if (!/^[a-zA-Z0-9._-]+$/.test(filename)) {
+    throw new HttpError(400, "Invalid demo asset filename.");
+  }
+}
+
+function parseByteRange(rangeHeader: string | undefined, size: number): ByteRange | undefined {
+  if (rangeHeader === undefined) {
+    return undefined;
+  }
+
+  const match = rangeHeader.match(/^bytes=(\d*)-(\d*)$/);
+  if (match === null) {
+    throw new HttpError(416, "Invalid byte range.");
+  }
+
+  const startText = match[1] ?? "";
+  const endText = match[2] ?? "";
+  if (startText.length === 0 && endText.length === 0) {
+    throw new HttpError(416, "Invalid byte range.");
+  }
+
+  const start =
+    startText.length === 0
+      ? Math.max(0, size - Number(endText))
+      : Number(startText);
+  const end = endText.length === 0 ? size - 1 : Number(endText);
+
+  if (!Number.isSafeInteger(start) || !Number.isSafeInteger(end) || start < 0 || end < start || start >= size) {
+    throw new HttpError(416, "Requested byte range is not satisfiable.");
+  }
+
+  return {
+    start,
+    end: Math.min(end, size - 1)
+  };
+}
+
+export async function resolveDemoOutputAsset(
+  filename: string,
+  rangeHeader?: string | undefined
+): Promise<DemoOutputAssetResponse> {
+  assertDemoOutputFilename(filename);
+  const assetPath = join(process.cwd(), "src", "demo", "output", filename);
+  let assetStat: Awaited<ReturnType<typeof stat>>;
+  try {
+    assetStat = await stat(assetPath);
+  } catch (error: unknown) {
+    if (error instanceof Error && "code" in error && error.code === "ENOENT") {
+      throw new HttpError(404, `Demo asset ${filename} was not found.`);
+    }
+    throw error;
+  }
+
+  if (!assetStat.isFile()) {
+    throw new HttpError(404, `Demo asset ${filename} was not found.`);
+  }
+
+  const contentType = contentTypeForDemoOutputAsset(filename);
+  const range = parseByteRange(rangeHeader, assetStat.size);
+  const headers: Record<string, string | number> = {
+    "accept-ranges": "bytes",
+    "content-type": contentType
+  };
+
+  if (range === undefined) {
+    return {
+      assetPath,
+      statusCode: 200,
+      headers: {
+        ...headers,
+        "content-length": assetStat.size
+      }
+    };
+  }
+
+  return {
+    assetPath,
+    statusCode: 206,
+    headers: {
+      ...headers,
+      "content-length": range.end - range.start + 1,
+      "content-range": `bytes ${range.start}-${range.end}/${assetStat.size}`
+    },
+    range
+  };
+}
+
+async function sendDemoOutputAsset(
+  request: IncomingMessage,
+  response: ServerResponse,
+  filename: string
+): Promise<void> {
+  const asset = await resolveDemoOutputAsset(filename, singleHeader(request.headers.range));
+
+  if (asset.range === undefined) {
+    response.writeHead(asset.statusCode, asset.headers);
+    if (request.method === "HEAD") {
+      response.end();
+      return;
+    }
+
+    createReadStream(asset.assetPath).once("error", (error) => sendStreamError(response, 500, error.message)).pipe(response);
+    return;
+  }
+
+  response.writeHead(asset.statusCode, asset.headers);
+
+  if (request.method === "HEAD") {
+    response.end();
+    return;
+  }
+
+  createReadStream(asset.assetPath, { start: asset.range.start, end: asset.range.end })
+    .once("error", (error) => sendStreamError(response, 500, error.message))
+    .pipe(response);
 }
 
 function singleHeader(value: string | string[] | undefined): string | undefined {
@@ -1092,6 +1258,13 @@ export function createJobServer(options: JobServerOptions): JobServerApp {
 
       if (request.method === "GET" && isDemoPageRoute(url.pathname)) {
         sendHtml(response, 200, await readDemoPage());
+        return;
+      }
+
+      const demoOutputFilename =
+        request.method === "GET" || request.method === "HEAD" ? routeDemoOutputAsset(url.pathname) : undefined;
+      if (demoOutputFilename !== undefined) {
+        await sendDemoOutputAsset(request, response, demoOutputFilename);
         return;
       }
 

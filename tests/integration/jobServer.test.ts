@@ -3,7 +3,7 @@ import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
-import { createJobServer, renderReviewClosedPage } from "../../src/server/http.ts";
+import { createJobServer, renderReviewClosedPage, resolveDemoOutputAsset } from "../../src/server/http.ts";
 import { parseWavFormat } from "../../src/audio/wav.ts";
 import { createProvidersFromEnvironment } from "../../src/providers/index.ts";
 import { createMockProviders } from "../../src/providers/mock/index.ts";
@@ -133,6 +133,18 @@ test("review page shows live progress while a job is active", async () => {
   } finally {
     releaseStemSeparation();
   }
+});
+
+test("job server resolves demo output video assets with byte-range support", async () => {
+  const asset = await resolveDemoOutputAsset("final_original_camera_nobeat_orch_clip_2.mp4", "bytes=0-15");
+
+  assert.equal(asset.statusCode, 206);
+  assert.equal(asset.headers["content-type"], "video/mp4");
+  assert.equal(asset.headers["accept-ranges"], "bytes");
+  assert.equal(asset.headers["content-length"], 16);
+  assert.match(String(asset.headers["content-range"]), /^bytes 0-15\/\d+$/);
+  assert.equal(asset.range?.start, 0);
+  assert.equal(asset.range?.end, 15);
 });
 
 test("job backend pauses for human review of non-specific stems and resumes after selection", async () => {
