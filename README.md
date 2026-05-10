@@ -11,9 +11,16 @@ Our system takes degraded audio, analyzes what needs to be repaired, separates m
 
 The goal is not just cleaner audio. It is cultural preservation at scale: helping old performances, oral histories, family recordings, and archival media become listenable again without requiring hours of manual engineering.
 
+## Technology
+We used Codex to write the code and the Fal API to generate the video.
+
 ## Engineering
 
 ReMuse is a local TypeScript application for turning an uploaded WAV file into a MIDI-driven stereo remix. It accepts WAV PCM 16-bit or 24-bit, 44.1 kHz input, separates stems through a provider adapter, asks the user to review every returned stem, converts accepted stems to MIDI, assembles an OpenDAW-style session plan, maps instruments to SoundFont sample libraries, and returns a WAV PCM 16-bit, 44.1 kHz stereo bounce.
+
+
+<img width="873" height="714" alt="image" src="https://github.com/user-attachments/assets/8dea7a37-aa41-432c-b49d-2d01660c2d6f" />
+
 
 The current production-test path is:
 
