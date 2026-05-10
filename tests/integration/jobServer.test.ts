@@ -110,6 +110,8 @@ test("review page shows live progress while a job is active", async () => {
     const reviewPage = await app.api.getInstrumentReviewPage(created.jobId);
     assert.match(reviewPage, /<section class="progress-dialog" role="status"/);
     assert.match(reviewPage, /<progress max="100" value="/);
+    assert.match(reviewPage, /--bg: #090909/);
+    assert.match(reviewPage, /linear-gradient\(90deg, var\(--red\), var\(--gold\), var\(--green\)\)/);
     assert.match(reviewPage, /This page refreshes while the job is active\./);
   } finally {
     releaseStemSeparation();
@@ -164,7 +166,7 @@ test("job backend pauses for human review of non-specific stems and resumes afte
     contentType: "audio/wav",
     filename: "source.wav"
   })) as { jobId: string };
-  assert.deepEqual(openedUrls, [`http://remuse.test/review/${created.jobId}`]);
+  assert.deepEqual(openedUrls, []);
 
   let status = (await app.api.getJobStatus(created.jobId)) as {
     status: string;
@@ -175,12 +177,13 @@ test("job backend pauses for human review of non-specific stems and resumes afte
     }>;
   };
 
-  for (let attempt = 0; attempt < 20 && status.status !== "awaiting-review"; attempt += 1) {
+  for (let attempt = 0; attempt < 20 && (status.status !== "awaiting-review" || openedUrls.length === 0); attempt += 1) {
     await new Promise((resolve) => setTimeout(resolve, 25));
     status = (await app.api.getJobStatus(created.jobId)) as typeof status;
   }
 
   assert.equal(status.status, "awaiting-review");
+  assert.deepEqual(openedUrls, [`http://remuse.test/review/${created.jobId}`]);
   assert.equal(status.pendingInstrumentReviews.length, 2);
   assert.deepEqual(
     status.pendingInstrumentReviews[0]?.options.map((option) => option.displayName),
@@ -222,6 +225,7 @@ test("job backend pauses for human review of non-specific stems and resumes afte
   }
 
   assert.equal(resumedStatus.status, "succeeded");
+  assert.equal(openedUrls.length, 1);
 
   const result = (await app.api.getJobResult(created.jobId)) as {
     manualReviews: Array<{ status: string; selectedLabel?: { canonicalName: string } }>;

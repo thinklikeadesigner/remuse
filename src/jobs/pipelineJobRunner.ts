@@ -9,6 +9,10 @@ import type { FileArtifactStore } from "../storage/fileArtifactStore.ts";
 import type { FileJobStore } from "./fileJobStore.ts";
 import type { PipelineJobRecord } from "./types.ts";
 
+export type PipelineJobRunnerOptions = {
+  onManualReviewAwaiting?: (record: PipelineJobRecord) => void | Promise<void>;
+};
+
 function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
@@ -16,16 +20,19 @@ function errorMessage(error: unknown): string {
 export class PipelineJobRunner {
   private readonly jobStore: FileJobStore;
   private readonly artifactStore: FileArtifactStore;
+  private readonly options: PipelineJobRunnerOptions;
   readonly providers: PipelineProviders;
 
   constructor(
     jobStore: FileJobStore,
     artifactStore: FileArtifactStore,
-    providers: PipelineProviders = createMockProviders()
+    providers: PipelineProviders = createMockProviders(),
+    options: PipelineJobRunnerOptions = {}
   ) {
     this.jobStore = jobStore;
     this.artifactStore = artifactStore;
     this.providers = providers;
+    this.options = options;
   }
 
   start(record: PipelineJobRecord): void {
@@ -103,10 +110,20 @@ export class PipelineJobRunner {
     error.state.events.push(awaitingEvent);
     await this.jobStore.appendEvent(jobId, awaitingEvent);
 
-    return this.jobStore.awaitReview(jobId, {
+    const record = await this.jobStore.awaitReview(jobId, {
       state: error.state,
       requests
     });
+
+    if (this.options.onManualReviewAwaiting !== undefined) {
+      try {
+        await this.options.onManualReviewAwaiting(record);
+      } catch (callbackError: unknown) {
+        console.warn(`Could not run manual review callback for ${jobId}: ${errorMessage(callbackError)}`);
+      }
+    }
+
+    return record;
   }
 
   private async createReviewRequest(

@@ -305,6 +305,18 @@ function displayStepName(step: PipelineStepName): string {
     .join(" ");
 }
 
+function openReviewPage(jobId: string, options: JobApiOptions): void {
+  if (!options.autoOpenReview) {
+    return;
+  }
+
+  const reviewUrl = new URL(`/review/${encodeURIComponent(jobId)}`, options.publicBaseUrl).toString();
+  void Promise.resolve(options.openUrl(reviewUrl)).catch((error: unknown) => {
+    const message = error instanceof Error ? error.message : String(error);
+    console.warn(`Could not open review UI at ${reviewUrl}: ${message}`);
+  });
+}
+
 function progressForRecord(record: PipelineJobRecord): { percent: number; step: string; message: string } {
   if (record.status === "succeeded") {
     return { percent: 100, step: "Complete", message: "The ReMuse job has completed." };
@@ -435,49 +447,55 @@ function renderReviewPage(record: PipelineJobRecord): string {
     ${shouldRefresh ? `<meta http-equiv="refresh" content="5">` : ""}
     <title>ReMuse Review ${escapeHtml(record.id)}</title>
     <style>
-      :root { color-scheme: light dark; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
-      body { margin: 0; background: #f6f4ef; color: #171717; }
-      main { max-width: 900px; margin: 0 auto; padding: 32px 20px 48px; }
-      header { margin-bottom: 24px; }
+      :root {
+        color-scheme: dark;
+        --bg: #090909;
+        --panel: #141414;
+        --panel-2: #1b1b1b;
+        --line: #2b2b2b;
+        --text: #f6f2ea;
+        --muted: #aba49a;
+        --gold: #d8ae5f;
+        --red: #9d2f33;
+        --green: #4d9f7a;
+        --shadow: rgba(0, 0, 0, 0.45);
+        font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      }
+      * { box-sizing: border-box; }
+      body { margin: 0; min-height: 100vh; background: linear-gradient(180deg, #101010, var(--bg) 70%); color: var(--text); }
+      main { width: min(960px, 100%); margin: 0 auto; padding: 32px 24px 48px; }
+      header { margin-bottom: 22px; padding-bottom: 18px; border-bottom: 1px solid rgba(255, 255, 255, 0.1); }
       h1 { margin: 0 0 8px; font-size: 28px; letter-spacing: 0; }
       h2 { margin: 4px 0 8px; font-size: 18px; letter-spacing: 0; }
-      code { font-size: 13px; }
-      a { color: #0d5f7c; }
-      .status-pill { display: inline-block; padding: 4px 10px; border: 1px solid #c8c2b5; border-radius: 999px; background: #fffaf0; }
-      .status-note { margin: 14px 0 0; }
-      .error { color: #9d1c1c; }
-      .progress-dialog, .review-card, .empty, .events { background: #fffdf8; border: 1px solid #d7d0c2; border-radius: 8px; padding: 18px; margin: 16px 0; }
-      .progress-dialog { box-shadow: 0 14px 40px rgba(31, 111, 95, 0.12); }
+      code { font-size: 13px; color: var(--gold); }
+      a { color: var(--gold); }
+      .status-pill { display: inline-block; padding: 4px 10px; border: 1px solid rgba(216, 174, 95, 0.55); border-radius: 999px; background: #12100d; color: var(--gold); }
+      .status-note { margin: 14px 0 0; color: var(--muted); }
+      .error { color: #f0b7ab; }
+      .progress-dialog, .review-card, .empty, .events { background: rgba(20, 20, 20, 0.92); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 8px; box-shadow: 0 22px 80px var(--shadow); padding: 18px; margin: 16px 0; }
       .progress-heading { display: flex; justify-content: space-between; gap: 16px; align-items: baseline; }
       .progress-heading h2 { margin: 0; }
-      .progress-heading span { font-weight: 700; color: #1f6f5f; }
-      progress { display: block; width: 100%; height: 14px; margin: 14px 0; accent-color: #1f6f5f; }
-      .progress-dialog p { margin: 6px 0; }
-      .review-card.is-resolved { opacity: 0.52; background: #efebe2; }
-      .eyebrow { margin: 0; color: #6c655d; font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; }
-      .current { margin: 0 0 14px; color: #4f4a44; }
-      .resolved-label { margin: 12px 0 0; color: #4f4a44; }
+      .progress-heading span { color: var(--gold); font-weight: 780; font-variant-numeric: tabular-nums; }
+      progress { appearance: none; -webkit-appearance: none; display: block; width: 100%; height: 10px; margin: 14px 0; border: 1px solid rgba(255, 255, 255, 0.16); background: #101010; }
+      progress::-webkit-progress-bar { background: #101010; }
+      progress::-webkit-progress-value { background: linear-gradient(90deg, var(--red), var(--gold), var(--green)); }
+      progress::-moz-progress-bar { background: linear-gradient(90deg, var(--red), var(--gold), var(--green)); }
+      .progress-dialog p { margin: 6px 0; color: var(--muted); }
+      .progress-dialog strong { color: var(--text); }
+      .review-card.is-resolved { opacity: 0.54; background: rgba(27, 27, 27, 0.72); }
+      .eyebrow { margin: 0; color: var(--gold); font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; }
+      .current { margin: 0 0 14px; color: var(--muted); }
+      .resolved-label { margin: 12px 0 0; color: var(--muted); }
       audio { display: block; width: 100%; margin: 12px 0 16px; }
       .review-actions { display: flex; flex-wrap: wrap; gap: 12px; align-items: end; }
       form { display: flex; flex-wrap: wrap; gap: 12px; align-items: end; }
-      label { display: grid; gap: 6px; font-size: 13px; color: #4f4a44; }
-      select, button { font: inherit; min-height: 38px; border-radius: 6px; border: 1px solid #aaa195; background: #ffffff; color: #171717; }
+      label { display: grid; gap: 6px; font-size: 13px; color: var(--muted); }
+      select, button { font: inherit; min-height: 38px; border-radius: 6px; border: 1px solid var(--line); background: var(--panel-2); color: var(--text); }
       select { min-width: 180px; padding: 0 10px; }
-      button { padding: 0 16px; cursor: pointer; background: #1f6f5f; color: white; border-color: #1f6f5f; }
-      .discard-button { background: #fbf8f1; color: #6b3027; border-color: #b99990; }
+      button { padding: 0 16px; cursor: pointer; background: var(--green); color: #07110d; border-color: var(--green); font-weight: 720; }
+      .discard-button { background: #251415; color: #f0b7ab; border-color: rgba(157, 47, 51, 0.7); }
       ul { padding-left: 20px; }
-      li { margin: 8px 0; }
-      @media (prefers-color-scheme: dark) {
-        body { background: #171614; color: #f5f1e8; }
-        a { color: #7fd0ee; }
-        .status-pill, .progress-dialog, .review-card, .empty, .events { background: #22201d; border-color: #504a42; }
-        .review-card.is-resolved { background: #1a1917; }
-        .status-pill { background: #29251f; }
-        .progress-heading span { color: #5ec4ad; }
-        .eyebrow, .current, .resolved-label, label { color: #c8bfb1; }
-        select { background: #171614; color: #f5f1e8; border-color: #6d655b; }
-        .discard-button { background: #2a211f; color: #f0b7ab; border-color: #80564e; }
-      }
+      li { margin: 8px 0; color: var(--muted); }
     </style>
   </head>
   <body>
@@ -537,20 +555,17 @@ export class JobApi {
   private readonly jobStore: FileJobStore;
   private readonly runner: PipelineJobRunner;
   private readonly maxUploadBytes: number;
-  private readonly options: JobApiOptions;
 
   constructor(
     artifactStore: FileArtifactStore,
     jobStore: FileJobStore,
     runner: PipelineJobRunner,
-    maxUploadBytes: number,
-    options: JobApiOptions
+    maxUploadBytes: number
   ) {
     this.artifactStore = artifactStore;
     this.jobStore = jobStore;
     this.runner = runner;
     this.maxUploadBytes = maxUploadBytes;
-    this.options = options;
   }
 
   async createJobFromUpload(input: CreateJobUploadInput): Promise<unknown> {
@@ -568,7 +583,6 @@ export class JobApi {
     const stored = await this.artifactStore.saveInputWav(jobId, input.filename, input.bytes);
     const record = await this.jobStore.create({ id: jobId, inputArtifact: stored.artifact });
     this.runner.start(record);
-    this.openReviewPage(jobId);
 
     return {
       jobId,
@@ -817,17 +831,6 @@ export class JobApi {
     };
   }
 
-  private openReviewPage(jobId: string): void {
-    if (!this.options.autoOpenReview) {
-      return;
-    }
-
-    const reviewUrl = new URL(`/review/${encodeURIComponent(jobId)}`, this.options.publicBaseUrl).toString();
-    void Promise.resolve(this.options.openUrl(reviewUrl)).catch((error: unknown) => {
-      const message = error instanceof Error ? error.message : String(error);
-      console.warn(`Could not open review UI at ${reviewUrl}: ${message}`);
-    });
-  }
 }
 
 export function createJobServer(options: JobServerOptions): JobServerApp {
@@ -837,13 +840,17 @@ export function createJobServer(options: JobServerOptions): JobServerApp {
   const publicBaseUrl = options.publicBaseUrl ?? defaultPublicBaseUrl;
   const autoOpenReview = options.autoOpenReview ?? false;
   const openUrl = options.openUrl ?? openUrlWithDefaultBrowser;
-  const runner = new PipelineJobRunner(jobStore, artifactStore, providers);
-  const maxUploadBytes = options.maxUploadBytes ?? defaultMaxUploadBytes;
-  const api = new JobApi(artifactStore, jobStore, runner, maxUploadBytes, {
-    publicBaseUrl,
-    autoOpenReview,
-    openUrl
+  const runner = new PipelineJobRunner(jobStore, artifactStore, providers, {
+    onManualReviewAwaiting: (record) => {
+      openReviewPage(record.id, {
+        publicBaseUrl,
+        autoOpenReview,
+        openUrl
+      });
+    }
   });
+  const maxUploadBytes = options.maxUploadBytes ?? defaultMaxUploadBytes;
+  const api = new JobApi(artifactStore, jobStore, runner, maxUploadBytes);
 
   const server = createServer(async (request, response) => {
     try {

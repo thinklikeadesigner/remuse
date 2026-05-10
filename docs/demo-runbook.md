@@ -99,7 +99,7 @@ curl -X POST http://localhost:3000/v1/jobs \
 
 Poll the returned `statusUrl` until `status` is `succeeded`, then fetch the returned `resultUrl`.
 
-The returned `reviewUrl` also works as a lightweight browser status page while a job is queued or running. The local server opens that page through the OS default browser as soon as the job is submitted unless `REMUSE_AUTO_OPEN_REVIEW=0` is set. Use `REMUSE_PUBLIC_BASE_URL=http://localhost:<port>` when running behind a different host or port.
+The returned `reviewUrl` also works as a lightweight browser status page while a job is queued or running. The local server opens that page through the OS default browser only when manual review begins unless `REMUSE_AUTO_OPEN_REVIEW=0` is set. Use `REMUSE_PUBLIC_BASE_URL=http://localhost:<port>` when running behind a different host or port.
 
 ## Fallback Plan
 

@@ -22,5 +22,5 @@ app.server.listen(port, () => {
   console.log(`OpenDAW render backend: ${process.env.REMUSE_OPENDAW_RENDERER ?? "preview"}`);
   console.log(`Artifact and job state root: ${rootDir}`);
   console.log(`Review UI base: ${publicBaseUrl}`);
-  console.log(`Auto-open review UI: ${autoOpenReview ? "enabled" : "disabled"}`);
+  console.log(`Auto-open manual review UI: ${autoOpenReview ? "enabled" : "disabled"}`);
 });
