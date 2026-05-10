@@ -12,7 +12,7 @@ Our system takes degraded audio, analyzes what needs to be repaired, separates m
 The goal is not just cleaner audio. It is cultural preservation at scale: helping old performances, oral histories, family recordings, and archival media become listenable again without requiring hours of manual engineering.
 
 ## Partner Technology
-We used Codex and Fal API
+We used Codex and AutoHDR's provided Fal API key
 
 ## Engineering
 
